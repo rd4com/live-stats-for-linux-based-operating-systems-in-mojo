@@ -18,7 +18,7 @@ Over time, an `Trait` to simply add custom panels will be added,
 that way, folks like me can create their pannels for gpus, containers, ..  
 
 Rules that guide this project:  
-- No dependencies  
+- No extra dependencies  
 - Open-source  
 
 Why? So that people can:  
@@ -52,11 +52,12 @@ there are some quirks in the UI tho, see the repo.
 
 ```bash
 git clone --recursive https://github.com/rd4com/live-stats-for-linux-based-operating-systems-in-mojo
+cd live-stats-for-linux-based-operating-systems-in-mojo
 cd ui-terminal-mojo
 pixi shell
 pixi run build_pkg
 cd ..
-mojo build app.mojo -I mojo-ui-html/build
+mojo build app.mojo -I ui-terminal-mojo/build
 ```
 This create the app, to run it:
 ```bash
@@ -79,3 +80,6 @@ hopefully, developing apps like this can help answer that.
 If you'd like to say "I like where this is going" to encourage more work,  
 just 🌟 star the repo !  
 
+&nbsp;
+
+> MAX and Mojo usage and distribution are licensed under the [MAX & Mojo Community License](https://www.modular.com/legal/max-mojo-license)
