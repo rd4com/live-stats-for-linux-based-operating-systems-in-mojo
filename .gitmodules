@@ -1,0 +1,3 @@
+[submodule "ui-terminal-mojo"]
+	path = ui-terminal-mojo
+	url = https://github.com/rd4com/ui-terminal-mojo.git
