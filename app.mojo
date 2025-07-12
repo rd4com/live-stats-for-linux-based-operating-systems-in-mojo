@@ -191,17 +191,20 @@ def main():
         with MoveCursor.BelowThis(ui):
             with MoveCursor.AfterThis[StyleBorderSimple](ui):
                 with MoveCursor.BelowThis(ui):
+                    with MoveCursor.BelowThis(ui):
+                        widget_plot(ui, system_infos.cpu0_over_time)
                     with MoveCursor.AfterThis(ui):
                         Text("CPU") | Bg.white | Fg.black in ui
+                        ui[-1].data.value = ui[-1].data.value.center(width=16)
                 with MoveCursor.BelowThis(ui):
-                    with MoveCursor.AfterThis(ui):
-                        for e in system_infos.proc_stats_deltas:
-                            with MoveCursor.BelowThis(ui):
-                                if e.name == "cpu":
-                                    Text("cpu ") | Fg.green in ui
-                                else:
-                                    if show_cpu_cores:
-                                        Text(e.name) | Bg.blue in ui
+                    # with MoveCursor.AfterThis(ui):
+                    #     for e in system_infos.proc_stats_deltas:
+                    #         with MoveCursor.BelowThis(ui):
+                    #             if e.name == "cpu":
+                    #                 Text("cpu ") | Fg.green in ui
+                    #             else:
+                    #                 if show_cpu_cores:
+                    #                     Text(e.name) | Bg.blue in ui
                     with MoveCursor.AfterThis(ui):
                         for e in system_infos.proc_stats_deltas:
                             with MoveCursor.BelowThis(ui):
@@ -209,8 +212,9 @@ def main():
                                 var tmp_idle_sum = e.idle + e.iowait
                                 var percent = 100.0 * Float64(tmp_delta_sum - tmp_idle_sum) / Float64(tmp_delta_sum);
                                 if e.name == "cpu":
-                                    widget_progress_bar_thin(ui, UInt8(percent))
-                                    # Text(" ", round(percent),"%") in ui
+                                    with MoveCursor.BelowThis(ui):
+                                        widget_progress_bar_thin[width=12](ui, UInt8(percent))
+                                # Text(" ", round(percent),"%") in ui
                                 else:
                                     if show_cpu_cores:
                                         widget_progress_bar_thin[theme = Fg.magenta](ui, UInt8(percent))
@@ -222,26 +226,33 @@ def main():
                     for e in system_infos.cpu_infos: avg+=e.mhz
                     avg /= Float64(len(system_infos.cpu_infos))
                     var percent = (100.0/Float64(tmp_max_freq))*avg
-                    Text("Frequencies") | Bg.white | Fg.black in ui
+
                     with MoveCursor.BelowThis(ui):
+                        with MoveCursor.BelowThis(ui):
+                            widget_plot(ui, system_infos.freq_over_time)
                         with MoveCursor.AfterThis(ui):
-                            "avg " in ui
-                        widget_progress_bar_thin(ui, UInt8(percent))
+                            Text("Frequencies") | Bg.white | Fg.black in ui
+                            ui[-1].data.value = ui[-1].data.value.center(width=16)
+                    with MoveCursor.BelowThis(ui):
+                        # with MoveCursor.AfterThis(ui):
+                        #     "avg " in ui
+                        widget_progress_bar_thin[width=12](ui, UInt8(percent))
                     if show_cpu_cores:
 
+                        with MoveCursor.BelowThis(ui):
+                            with MoveCursor.AfterThis(ui):
+                                for e in system_infos.cpu_infos:
+                                    with MoveCursor.BelowThis(ui):
+                                        Text(Int(e.mhz)) | Fg.cyan in ui
+                            with MoveCursor.AfterThis(ui):
+                                for _ in system_infos.cpu_infos:
+                                    with MoveCursor.BelowThis(ui):
+                                        "Mhz" in ui
                         with MoveCursor.BelowThis(ui):
                             with MoveCursor.AfterThis(ui):
                                 Text("Avg: ", String(Int(avg)).ljust(5)) in ui
                             with MoveCursor.AfterThis(ui):
                                 Text("Max: ", tmp_max_freq) in ui
-                        with MoveCursor.AfterThis(ui):
-                            for e in system_infos.cpu_infos:
-                                with MoveCursor.BelowThis(ui):
-                                    Text(Int(e.mhz)) | Fg.cyan in ui
-                        with MoveCursor.AfterThis(ui):
-                            for _ in system_infos.cpu_infos:
-                                with MoveCursor.BelowThis(ui):
-                                    "Mhz" in ui
                 # with MoveCursor.BelowThis(ui):
 
 
@@ -806,7 +817,11 @@ struct SystemInfos:
     var ram_stats: RamStat
     var cpu_max_freq: Int
     var networking_app: List[NetworkingApp]
+    var freq_over_time: WidgetPlotSIMDQueue
+    var cpu0_over_time: WidgetPlotSIMDQueue
     fn __init__(out self):
+        self.freq_over_time = __type_of(self.freq_over_time)()
+        self.cpu0_over_time = __type_of(self.cpu0_over_time)()
         self.cooling = CoolingDevice.get_all()
         self.thermal_sensors = ThermalSensor.get_all()
         self.cpu_infos = CpuInfo.get_all()
@@ -843,4 +858,17 @@ struct SystemInfos:
         self.last_created_pid = LastCreatedPID()
         self.ram_stats = RamStat()
         self.networking_app = NetworkingApp.get_all()
+        #update freq_over_time
+        var tmp_max_freq = self.cpu_max_freq//1000
+        var avg = 0.0
+        for e in self.cpu_infos: avg+=e.mhz
+        avg /= Float64(len(self.cpu_infos))
+        var percent = (100.0/Float64(tmp_max_freq))*avg
+        self.freq_over_time.append_3bit_value(Int(((8.0/100.0)*percent).__floor__()))
+        #update cpu0_over_time
+        var e = self.proc_stats_deltas[0]
+        var tmp_delta_sum = e.user + e.nice + e.system + e.idle + e.iowait + e.irq + e.soft_irq + e.steal
+        var tmp_idle_sum = e.idle + e.iowait
+        percent = 100.0 * Float64(tmp_delta_sum - tmp_idle_sum) / Float64(tmp_delta_sum);
+        self.cpu0_over_time.append_3bit_value(Int(((8.0/100.0)*percent).__floor__()))
         
