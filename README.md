@@ -48,6 +48,12 @@ there are some quirks in the UI tho, see the repo.
 
 <img src="./overview.png" />  
 
+# Latest improvements:
+
+<img src="./new_cool.gif" />
+&nbsp;
+<img src="./new_freq.gif" />  
+
 # How to get the app:
 
 ```bash

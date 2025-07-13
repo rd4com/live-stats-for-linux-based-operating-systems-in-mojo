@@ -291,7 +291,7 @@ def main():
                                     ui[-1] |= Bg.red
             
             with MoveCursor.AfterThis[StyleBorderCurved](ui):
-                Text("☃️ Cooling") | Bg.blue in ui
+
                 var average_cooling_percent_float = 0.0
                 for e in system_infos.cooling:
                     var tmp_avg_cooling_percent = (100.0/Float64(e.max_state))*Float64(e.cur_state)
@@ -303,10 +303,31 @@ def main():
                 elif average_cooling_percent_int >= 33: speed_animate = 2
                 elif average_cooling_percent_int > 0: speed_animate = 1
                 with MoveCursor.BelowThis(ui):
-                    with MoveCursor.AfterThis(ui):
-                        Text("avg ") in ui
-                    widget_percent_bar_with_speed[Fg.default](ui, average_cooling_percent_int,speed_animate)
+                    with MoveCursor.BelowThis(ui):
+                        Text("Coolers") | Bg.blue in ui
+                        # var center_width = len(system_infos.cooling)
+                        # TODO: center_width of ui[-1] with len
 
+                    for e in system_infos.cooling:
+                        var e_to_percent = (100.0/Float64(e.max_state))*Float64(e.cur_state)
+                        var to_speed = round((8.0/100.0)*e_to_percent)
+                        if e_to_percent != 0:
+                            if to_speed == 0: 
+                                to_speed = 1
+                        with MoveCursor.AfterThis(ui):
+                            if to_speed == 0: Text("|") in ui
+                            elif to_speed == 1: spinner[1](ui)
+                            elif to_speed == 2: spinner[2](ui)
+                            elif to_speed == 3: spinner[3](ui)
+                            elif to_speed == 4: spinner[4](ui)
+                            elif to_speed == 5: spinner[5](ui)
+                            elif to_speed == 6: spinner[6](ui)
+                            elif to_speed == 7: spinner[7](ui)
+                            else: spinner[8](ui)
+                with MoveCursor.BelowThis(ui):
+                    with MoveCursor.AfterThis(ui):
+                        Text("Average: ", average_cooling_percent_int, "%") in ui
+                    # widget_percent_bar_with_speed[Fg.default](ui, average_cooling_percent_int,speed_animate)
                 if show_all_cooling:
                     # with MoveCursor.BelowThis(ui):
                         # widget_checkbox(ui, "Show all", show_all_cooling)
