@@ -50,6 +50,10 @@ there are some quirks in the UI tho, see the repo.
 
 # Latest improvements:
 
+### 🆕: see [app_progressive](./app_progressive.mojo)
+More user-friendly, progressive complexity, "Things shown only when needed".  
+This is what the ui framework should be able to to more and better over time.  
+
 <img src="./new_cool.gif" />
 &nbsp;
 <img src="./new_freq.gif" />  
