@@ -76,6 +76,7 @@ This create the app, to run it:
 ```bash
 ./app
 ```
+(Change to `app_progressive.mojo` for the progressive flavour of `app.mojo`)  
 
 Why the ui is not an community-package yet ?  
 because not sure yet if the ui framework is good enough,  
