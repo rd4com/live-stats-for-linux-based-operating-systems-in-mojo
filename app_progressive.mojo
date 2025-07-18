@@ -65,6 +65,9 @@ def main():
 
     var show_next_refresh_progres_bar = False
 
+    var sort_apps_by = 0
+    var sort_apps_by_choices = List[String]("uptime", "rss", "swap")
+
 
     for _ in ui:
         
@@ -83,6 +86,7 @@ def main():
                 with MoveCursor.BelowThis(ui):
                     widget_checkbox(ui, "Net interfaces", show_net_interfaces)
         ui.set_tab_menu[tab_menu]()
+
         if show_next_refresh_progres_bar:
             with MoveCursor.BelowThis(ui):
                 with MoveCursor.AfterThis(ui):
@@ -545,6 +549,26 @@ def main():
                         ...
                     else:
                         widget_value_selector["IO unit"](ui, ui_apps_io_unit_type, List("Mb","Kb","B"))
+
+                    with MoveCursor.BelowThis[StyleBorderCurved](ui):
+
+                        with MoveCursor.BelowThis(ui):
+                            widget_value_selector["Sort by:"](ui, system_infos.pid_collection.sort_apps_by,  sort_apps_by_choices)
+                        with MoveCursor.BelowThis(ui):
+                            with MoveCursor.AfterThis(ui):
+                                Text("Smallest first") in ui
+                                if system_infos.pid_collection.sort_apps_smallest_first == True:
+                                    ui[-1] |= Bg.green
+                                if ui[-1].click():
+                                    system_infos.pid_collection.sort_apps_smallest_first = True
+                            with MoveCursor.AfterThis(ui): " " in ui
+                            with MoveCursor.AfterThis(ui):
+                                Text("Largest first") in ui
+                                if system_infos.pid_collection.sort_apps_smallest_first == False:
+                                    ui[-1] |= Bg.green
+                                if ui[-1].click():
+                                    system_infos.pid_collection.sort_apps_smallest_first = False
+
                 if "pid" not in ui_apps_hidden_elements:
                     with MoveCursor.AfterThis(ui):
                         "PID" in ui
@@ -1295,11 +1319,15 @@ struct PIDCollection:
     var ignore_zero_rss_entries: Bool
     var filter_is_edit: Bool
     var filter_edit_buffer: String
+    var sort_apps_smallest_first: Bool
+    var sort_apps_by: Int
     fn __init__(out self):
         self.values = __type_of(self.values)()
         self.ignore_zero_rss_entries = True
         self.filter_is_edit = False
         self.filter_edit_buffer = String("")
+        self.sort_apps_smallest_first = True
+        self.sort_apps_by = 0
     fn update_values(mut self):
         self.values.clear()
         try:
@@ -1347,3 +1375,23 @@ struct PIDCollection:
                         if self.values[-1].rss == 0:
                             _ = self.values.pop()
         except e: ...
+        # TODO: make this very generic
+        var sort_apps_smallest_first = UnsafePointer(to=self.sort_apps_smallest_first)
+        @parameter
+        fn app_sort_rss(a: PIDElement, b: PIDElement)->Bool:
+            if sort_apps_smallest_first[] == True:
+                return b.rss>a.rss
+            else: 
+                return a.rss>b.rss 
+        @parameter
+        fn app_sort_swap(a: PIDElement, b: PIDElement)->Bool:
+            if sort_apps_smallest_first[] == True:
+                return b.swap_kb>a.swap_kb
+            else: 
+                return a.swap_kb>b.swap_kb 
+        if self.sort_apps_by == 0: 
+            if self.sort_apps_smallest_first == False:
+                self.values.reverse()
+        elif self.sort_apps_by == 1: sort[app_sort_rss](self.values)
+        elif self.sort_apps_by == 2: sort[app_sort_swap](self.values)
+
