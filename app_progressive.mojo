@@ -56,7 +56,7 @@ def main():
     
     var apps_area_hovered = False
     var show_apps_area_element_selector = False
-    var ui_apps_hidden_elements = List("io_read", "io_write", "uptime", "rss_k", "pid")
+    var ui_apps_hidden_elements = List("io_read", "io_write", "uptime", "rss_k", "pid", "oom_score", "oom_score_adj")
     var ui_apps_io_unit_type = 0
     var ui_app_selected_pid = Optional[Int](None)
     
@@ -616,6 +616,19 @@ def main():
                                     Text(" ") in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
+                if "swap_kb" not in ui_apps_hidden_elements:
+                    with MoveCursor.AfterThis(ui):
+                        Text("swap[Kb]") in ui 
+                        if ui[-1].hover(): ui[-1] |= Bg.red
+                        if ui[-1].click(): ui_apps_hidden_elements.append("swap_kb")
+                        with MoveCursor.AfterThis(ui):
+                            for e in system_infos.pid_collection.values:
+                                if e.swap_kb:
+                                    Text(e.swap_kb) in ui
+                                else:
+                                    Text(" ") in ui
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
                 with MoveCursor.AfterThis(ui):
                     "App" in ui
                     for e in system_infos.pid_collection.values:
@@ -639,8 +652,13 @@ def main():
                                     tmp_io_read_val >>= 20
                                 elif ui_apps_io_unit_type == 1:
                                     tmp_io_read_val >>= 10
-
-                                Text(tmp_io_read_val) in ui
+                                if tmp_io_read_val:
+                                    Text(tmp_io_read_val) in ui
+                                else:
+                                    if e.io[0]:
+                                        "<1" in ui
+                                    else:
+                                        " " in ui
                             else:
                                 " " in ui
                     with MoveCursor.AfterThis(ui):
@@ -657,9 +675,35 @@ def main():
                                     tmp_io_write_val >>= 20
                                 elif ui_apps_io_unit_type == 1:
                                     tmp_io_write_val >>= 10
-                                Text(tmp_io_write_val) in ui
+                                if tmp_io_write_val:
+                                    Text(tmp_io_write_val) in ui
+                                else:
+                                    if e.io[1]:
+                                        "<1" in ui
+                                    else:
+                                        " " in ui
                             else:
                                 " " in ui 
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                if "oom_score" not in ui_apps_hidden_elements:
+                    with MoveCursor.AfterThis(ui):
+                        Text("oom_score") in ui 
+                        if ui[-1].hover(): ui[-1] |= Bg.red
+                        if ui[-1].click(): ui_apps_hidden_elements.append("oom_score")
+                        with MoveCursor.AfterThis(ui):
+                            for e in system_infos.pid_collection.values:
+                                Text(e.oom_score) in ui
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                if "oom_score_adj" not in ui_apps_hidden_elements:
+                    with MoveCursor.AfterThis(ui):
+                        Text("oom_score_adj") in ui 
+                        if ui[-1].hover(): ui[-1] |= Bg.red
+                        if ui[-1].click(): ui_apps_hidden_elements.append("oom_score_adj")
+                        with MoveCursor.AfterThis(ui):
+                            for e in system_infos.pid_collection.values:
+                                Text(e.oom_score_adj) in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
                 # Running/Sleep
@@ -1235,6 +1279,9 @@ struct PIDElement(Movable&Copyable):
     var rss: Int
     var io: Self.io_storage_type 
     var current_state: String
+    var swap_kb: Int
+    var oom_score: Int
+    var oom_score_adj: Int
     alias io_storage_type = SIMD[DType.int64, 2] #R/W == indexes[0, 1]
     fn get_io(mut self):
         try:
@@ -1266,7 +1313,7 @@ struct PIDCollection:
                         if self.filter_edit_buffer not in p_name.strip():
                             continue
                     self.values.append(
-                        PIDElement(Int(String(p)), String(p_name.strip()), 0, 0, 0, PIDElement.io_storage_type(), " ")
+                        PIDElement(Int(String(p)), String(p_name.strip()), 0, 0, 0, PIDElement.io_storage_type(), " ", 0, 0, 0)
                     )
                     try:
                         var tmp_stats = (Path("/proc")/p/"stat").read_text()#[1].split(" ")
@@ -1278,7 +1325,21 @@ struct PIDCollection:
                         self.values[-1].start_time = Int(splitted_stats[22-3])
                         self.values[-1].get_io()
                         self.values[-1].current_state = splitted_stats[0]
-                        # self.values[-1].start_time = tmp_stats[19].__float__()
+                        # TODO: Need to make this way faster:
+                        # (Currently uses a lot of CPU%)
+                        # Also, maybe fetch only if column is there!
+                        try:
+                            var tmp_p = (Path("/proc")/p/"smaps_rollup").read_text().splitlines()
+                            for i_ in range(2, len(tmp_p)-1): 
+                                if tmp_p[i_].startswith("Swap:"):
+                                    self.values[-1].swap_kb = Int(tmp_p[i_][5:-3].strip())
+                        except e: ...
+                        try:
+                            var tmp_p = (Path("/proc")/p/"oom_score").read_text()
+                            self.values[-1].oom_score = Int(tmp_p)
+                            tmp_p = (Path("/proc")/p/"oom_score_adj").read_text()
+                            self.values[-1].oom_score_adj = Int(tmp_p)
+                        except e: ...
 
                     except e:
                         ...
