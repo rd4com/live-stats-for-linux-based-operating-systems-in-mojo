@@ -2,6 +2,8 @@ from `ui-terminal-mojo` import *
 from pathlib import Path
 from sys.info import os_is_linux
 from sys.param_env import env_get_bool
+from Dummy_GPU_metric_fetcher import gpu_metric_fetch
+
 
 alias page_size = 4096
 
@@ -22,8 +24,11 @@ def main():
         "The app can run on linux based operating systems"
     ]()
 
+    var show_ui_networking = False
+    var show_app_pannel = False
+    
     var system_infos = SystemInfos()
-    system_infos.update_values()
+    system_infos.update_values(show_ui_networking, show_app_pannel)
     # return
     
     var time = perf_counter_ns()
@@ -42,14 +47,11 @@ def main():
     var show_all_cooling = False
     var show_all_temp_sensors = False
 
-    # var app_panel = AppPanel(ui)
-    var show_app_pannel = False
     
     var show_net_drop = False
     var show_net_interfaces = False
     var net_interfaces_area_hovered = False
     
-    var show_ui_networking = False
     var show_ui_networking_plus_button = False
     var show_ui_networking_element_selector = False
     var ui_networking_hidden_elements = List("remote", "inode", "status", "protocol", "local", "rx_tx_queue")
@@ -68,6 +70,7 @@ def main():
     var sort_apps_by = 0
     var sort_apps_by_choices = List[String]("uptime", "rss", "swap")
 
+    var show_gpu_pannel = False
 
     for _ in ui:
         
@@ -102,11 +105,10 @@ def main():
                 _ = ui.zones.pop()
 
         if TimePassed(time): 
-            system_infos.update_values()
-            # once_sec_timer = True
-        else:
-            ...
-            # once_sec_timer = False
+            system_infos.update_values(
+                show_ui_networking,
+                show_app_pannel
+            )
         with MoveCursor.BelowThis(ui):
             with MoveCursor.BelowThis(ui):
                 with MoveCursor.BelowThis(ui):
@@ -340,7 +342,7 @@ def main():
                 " " in ui
             with MoveCursor.AfterThis(ui):
             # with MoveCursor.AfterThis[StyleBorderSimple](ui):
-                with MoveCursor.BelowThis(ui):
+                with MoveCursor.AfterThis(ui):
                     if show_net_interfaces:
                         with MoveCursor.AfterThis(ui):
                             Text("🛜") in ui
@@ -394,9 +396,78 @@ def main():
                                             Text("70") in ui
                                     else:
                                         Text(" ") in ui
-            
+
         with MoveCursor.BelowThis(ui):
             " " in ui
+
+        with MoveCursor.BelowThis[StyleBorderCurved](ui):
+            @parameter
+            fn gpu_pannel_toggle():
+                Text("GPU") | Bg.white | Fg.black in ui
+                if ui[-1].click():
+                    show_gpu_pannel = ~show_gpu_pannel
+                if ui[-1].hover():
+                    ui[-1].data.value += " (Click to toggle gpu pannel)" 
+                    ui[-1] |= Bg.magenta
+            if show_gpu_pannel:
+                with MoveCursor.AfterThis(ui):
+                    with MoveCursor.AfterThis(ui):
+                        gpu_pannel_toggle()
+                        for gpu in system_infos.gpu_collection.gpus:
+                            with MoveCursor.BelowThis(ui):
+                                gpu.name in ui
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    with MoveCursor.AfterThis(ui):
+                        Text("Utilization") in ui
+                        for gpu in system_infos.gpu_collection.gpus:
+                            with MoveCursor.BelowThis(ui):
+                                widget_percent_bar_with_speed(ui,gpu.utilization_pct , 0)
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    with MoveCursor.AfterThis(ui):
+                        Text("Consumption") in ui
+                        for gpu in system_infos.gpu_collection.gpus:
+                            with MoveCursor.BelowThis(ui):
+                                with MoveCursor.AfterThis(ui):
+                                    Text(Int(round(gpu.power_usage))) in ui
+                                with MoveCursor.AfterThis(ui):
+                                    Text("/") | Fg.cyan in ui
+                                with MoveCursor.AfterThis(ui):
+                                    Text(Int(round(gpu.power_capacity))) in ui
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    with MoveCursor.AfterThis(ui):
+                        Text("Memory used") in ui
+                        for gpu in system_infos.gpu_collection.gpus:
+                            with MoveCursor.BelowThis(ui):
+                                var tmp_pct_gpu = 100.0/Float64(gpu.mem_total)
+                                tmp_pct_gpu *= Float64(gpu.mem_used)
+                                widget_progress_bar_thin[width=10](ui, Int(round(tmp_pct_gpu)))
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    with MoveCursor.AfterThis(ui):
+                        Text("Memory total") in ui
+                        for gpu in system_infos.gpu_collection.gpus:
+                            with MoveCursor.BelowThis(ui):
+                                Text(Int(round(gpu.mem_total))) in ui
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    with MoveCursor.AfterThis(ui):
+                        Text("Temperature") in ui
+                        for gpu in system_infos.gpu_collection.gpus:
+                            with MoveCursor.BelowThis(ui):
+                                Text(Int(round(gpu.temperature))) in ui
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    with MoveCursor.AfterThis(ui):
+                        Text("%Fan") in ui
+                        for gpu in system_infos.gpu_collection.gpus:
+                            with MoveCursor.BelowThis(ui):
+                                Text(Int(round(gpu.fan_pct))) in ui
+            else:
+                gpu_pannel_toggle()
+
         with MoveCursor.AfterThis[StyleBorderCurved](ui) as networking_area:
             # Text(len(system_infos.networking_app)) in ui
             with MoveCursor.BelowThis(ui):
@@ -792,98 +863,6 @@ def main():
                     ui_app_selected_pid = None
 
 
-
-
-struct AppPanel[O:MutableOrigin]:
-    var ui: Pointer[UI, O]
-    var is_edit: Bool
-    var edit_buffer: String
-    var pids: List[(Int, String)]
-    fn __init__(out self, ref[O]ui: UI):
-        self.ui = Pointer(to=ui)
-        self.is_edit = False
-        self.edit_buffer = ""
-        self.pids = []
-    fn render(mut self):
-        with MoveCursor.AfterThis[StyleBorderDouble, Fg.magenta](self.ui[]):
-            Text("📱 Apps") | Bg.magenta in self.ui[]
-            var current_is_edit = self.is_edit
-            #TODO: Fix input_buffer when ""
-            input_buffer["Search:"](self.ui[], self.edit_buffer, self.is_edit)
-            var need_update = self.is_edit == False
-            need_update = need_update == current_is_edit == True
-            if need_update:
-                spinner2(self.ui[])
-                self.update_apps()
-            for ref p in self.pids:
-                if len(self.edit_buffer) and self.edit_buffer in p[1]:
-                    Text(p[1]) in self.ui[]
-                    if self.ui[][-1].hover():
-                        var tmp_stats = (Self.get_statm(p[0]) * 4096)/1024
-                        with MoveCursor.BelowThis[StyleBorderCurved, Fg.magenta](self.ui[]):
-                            Text("🧮 Ram (Kb)") in self.ui[]
-                            with MoveCursor.BelowThis(self.ui[]):
-                                with MoveCursor.AfterThis(self.ui[]):
-                                    with MoveCursor.BelowThis(self.ui[]):
-                                        Text("Total")|Bg.blue in self.ui[]
-                                    with MoveCursor.BelowThis(self.ui[]):
-                                        Text(tmp_stats[0], " ") in self.ui[]
-                                with MoveCursor.AfterThis(self.ui[]):
-                                    with MoveCursor.BelowThis(self.ui[]):
-                                        Text("Rss")|Bg.cyan in self.ui[]
-                                    with MoveCursor.BelowThis(self.ui[]):
-                                        Text(tmp_stats[1], " ") in self.ui[]
-                            Text("(Page size assumed to be 4096)") in self.ui[]
-                        var io_stats = Self.get_io(p[0])
-                        with MoveCursor.BelowThis[StyleBorderCurved, Fg.magenta](self.ui[]):
-                            Text("🗄️  Disk I/O (bytes)") in self.ui[]
-                            with MoveCursor.AfterThis(self.ui[]):
-                                with MoveCursor.BelowThis(self.ui[]):
-                                    Text("👓 Read")|Bg.blue in self.ui[]
-                                with MoveCursor.BelowThis(self.ui[]):
-                                    Text(io_stats[0], " ") in self.ui[]
-                            with MoveCursor.AfterThis(self.ui[]):
-                                " " in self.ui[]
-                            with MoveCursor.AfterThis(self.ui[]):
-                                with MoveCursor.BelowThis(self.ui[]):
-                                    Text("✏️ Write")|Bg.cyan in self.ui[]
-                                with MoveCursor.BelowThis(self.ui[]):
-                                    Text(io_stats[1], " ") in self.ui[]
-                                
-    @staticmethod
-    fn get_statm(pid: Int, out ret:SIMD[DType.uint32, 8]):
-        ret = __type_of(ret)(0)
-        try:
-            tmp_mstat = (Path("/proc")/String(pid)/"statm").read_text().split(" ")
-            ret[0] = Int(tmp_mstat[0])
-            ret[1] = Int(tmp_mstat[1])
-            ret[2] = Int(tmp_mstat[2])
-            ret[3] = Int(tmp_mstat[3])
-            ret[4] = Int(tmp_mstat[4])
-            ret[5] = Int(tmp_mstat[5])
-            ret[6] = Int(tmp_mstat[6])
-        except e: ...
-
-    @staticmethod
-    fn get_io(pid: Int, out ret:SIMD[DType.int64, 2]):
-        ret = __type_of(ret)(0)
-        try:
-            var tmp_mstat = (Path("/proc")/String(pid)/"io").read_text().split("\n")
-            ret[0] = Int(tmp_mstat[4].split(" ")[1])
-            ret[1] = Int(tmp_mstat[5].split(" ")[1])
-        except e: ...
-
-    fn update_apps(mut self):
-        try:
-            self.pids.clear()
-            var pids = Path("/proc").listdir()
-            for p in pids:
-                if String(p).isdigit():
-                    var p_name = (Path("/proc")/p/"comm").read_text()
-                    self.pids.append((Int(String(p)), String(p_name.strip())))
-        except e: ...
-
-
 @fieldwise_init
 struct CoolingDevice(Movable, Copyable):
     var path: Path
@@ -1233,6 +1212,7 @@ struct SystemInfos:
     var cpu0_over_time: WidgetPlotSIMDQueue
     var pid_collection: PIDCollection
     var uptime: Float64
+    var gpu_collection: GPU_collection
     fn __init__(out self):
         self.freq_over_time = __type_of(self.freq_over_time)()
         self.cpu0_over_time = __type_of(self.cpu0_over_time)()
@@ -1262,7 +1242,8 @@ struct SystemInfos:
         try:
             self.uptime = Path("/proc/uptime").read_text().split(" ")[0].__float__()
         except e: ...
-    fn update_values(mut self):
+        self.gpu_collection = GPU_collection()
+    fn update_values(mut self, show_ui_networking_app: Bool, show_app_pannel: Bool):
         for ref c in self.cooling: c.update_values()
         for ref t in self.thermal_sensors: t.update_values()
         for ref b in self.battery: b.update_values()
@@ -1276,7 +1257,8 @@ struct SystemInfos:
         # self.network_deltas.append(Network("test", 1, 1, 1, None))
         self.last_created_pid = LastCreatedPID()
         self.ram_stats = RamStat()
-        self.networking_app = NetworkingApp.get_all()
+        if show_ui_networking_app:
+            self.networking_app = NetworkingApp.get_all()
         #update freq_over_time
         var tmp_max_freq = self.cpu_max_freq//1000
         var avg = 0.0
@@ -1293,7 +1275,61 @@ struct SystemInfos:
         try:
             self.uptime = Path("/proc/uptime").read_text().split(" ")[0].__float__()
         except e: ...
-        self.pid_collection.update_values()
+        if show_app_pannel:
+            self.pid_collection.update_values()
+        self.gpu_collection = GPU_collection.update_values()
+
+@fieldwise_init
+struct GPUElement(Movable&Copyable):
+    var idx: Int
+    var name: String
+    var utilization_pct: Int
+    var mem_total: Int
+    var mem_used: Int
+    var fan_pct: Int
+    var temperature: Int
+    var power_usage: Int
+    var power_capacity: Int
+
+struct GPU_collection(Movable&Copyable):
+    var gpus: List[GPUElement]
+    fn __init__(out self):
+        self.gpus = __type_of(self.gpus)()
+    @staticmethod
+    fn update_values(out ret: Self):
+        ret = Self()
+        try:
+            # Some dummy GPU metrics in the expected CSV format:
+            var tmp_fetch = gpu_metric_fetch() # imported from Dummy_GPU_metric_fetcher.mojo
+            var tmp_gpus = tmp_fetch.split("\n")
+            var idx = 0
+            for g in tmp_gpus:
+                var splitted = g.split(",")
+                tmp_gpu_name = splitted[0]
+                tmp_gpu_utilization = splitted[1]
+                tmp_ram_used = splitted[2]
+                tmp_ram_total = splitted[3]
+                tmp_temperature = splitted[4]
+                tmp_fan_pct = splitted[5]
+                tmp_power_usage = splitted[6]
+                tmp_power_capacity = splitted[7]
+                ret.gpus.append(
+                    GPUElement(
+                        idx,
+                        tmp_gpu_name,
+                        Int(round(tmp_gpu_utilization.__float__())),
+                        Int(round(tmp_ram_total.__float__())),
+                        Int(round(tmp_ram_used.__float__())),
+                        Int(round(tmp_fan_pct.__float__())),
+                        Int(round(tmp_temperature.__float__())),
+                        Int(round(tmp_power_usage.__float__())),
+                        Int(round(tmp_power_capacity.__float__())),
+                    )
+                )
+                idx+=1
+        except e:
+            ...
+
 
 @fieldwise_init
 struct PIDElement(Movable&Copyable):
@@ -1348,7 +1384,7 @@ struct PIDCollection:
                         var tmp_stats = (Path("/proc")/p/"stat").read_text()#[1].split(" ")
                         var last_p = len(tmp_stats)-1
                         if last_p <= 0: raise "error"
-                        while tmp_stats[last_p] != ")": last_p -= 1
+                        while tmp_stats[last_p] != String(")"): last_p -= 1
                         var splitted_stats = (tmp_stats[last_p+2:]).split(" ")
                         self.values[-1].rss = Int(splitted_stats[24-3])*page_size
                         self.values[-1].start_time = Int(splitted_stats[22-3])

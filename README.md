@@ -54,8 +54,31 @@ there are some quirks in the UI tho, see the repo.
 More user-friendly, progressive complexity, "Things shown only when needed".  
 This is what the ui framework should be able to to more and better over time.
 
+### 🆕 `GPU agnostic pannel` with customizable metric fetcher
+Defaults to dummy data,  
+just customize this [`Dummy_GPU_metric_fetcher.mojo`](./Dummy_GPU_metric_fetcher.mojo) to integrate any GPU!  
+
+The pannel only consume CSV with an specific format,  
+users can just create an shell script that get metrics from whatever source their GPU provide,  
+and format it to the expected CSV format.  
+
+Why? because some GPUs might not have tools but virtual files for example.  
+This way, the app can support any of the many brand of GPUs, maybe even remote ones !  
+Also, it would be difficult to bring all the dependencies to support every gpus.  
+
+So the app call that function each second to get CSV metrics (`String`),  
+and show the results in an hopefuly beautiful way in the pannel.  
+Users need to customize that function if they need real metrics,  
+because defaults are dummy.
+
+The feature is here for y'all,  
+thanks to 'apnea' from the forum for asking for it.  
+
+Next step might be to integrate `async` multithread with `SpinLock` :p
+(For all CPU metrics too)  
+
   
-Widgets:
+### Widgets:
 
 <img src="./new_cool.gif" />
 &nbsp;
