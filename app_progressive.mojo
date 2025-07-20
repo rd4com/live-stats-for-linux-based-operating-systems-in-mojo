@@ -551,23 +551,24 @@ def main():
                         widget_value_selector["IO unit"](ui, ui_apps_io_unit_type, List("Mb","Kb","B"))
 
                     with MoveCursor.BelowThis[StyleBorderCurved](ui):
+                        with MoveCursor.AfterThis(ui):
+                            Text(" ") in ui
+                            ui[-1].data.replace_each_when_render = "↑"
+                            if system_infos.pid_collection.sort_apps_smallest_first == False:
+                                ui[-1] |= Bg.green
+                            if ui[-1].click():
+                                system_infos.pid_collection.sort_apps_smallest_first = False
+                        with MoveCursor.AfterThis(ui):
+                            Text(" ") in ui
+                            ui[-1].data.replace_each_when_render = "↓"
+                            if system_infos.pid_collection.sort_apps_smallest_first == True:
+                                ui[-1] |= Bg.green
+                            if ui[-1].click():
+                                system_infos.pid_collection.sort_apps_smallest_first = True
 
-                        with MoveCursor.BelowThis(ui):
-                            widget_value_selector["Sort by:"](ui, system_infos.pid_collection.sort_apps_by,  sort_apps_by_choices)
-                        with MoveCursor.BelowThis(ui):
-                            with MoveCursor.AfterThis(ui):
-                                Text("Smallest first") in ui
-                                if system_infos.pid_collection.sort_apps_smallest_first == True:
-                                    ui[-1] |= Bg.green
-                                if ui[-1].click():
-                                    system_infos.pid_collection.sort_apps_smallest_first = True
-                            with MoveCursor.AfterThis(ui): " " in ui
-                            with MoveCursor.AfterThis(ui):
-                                Text("Largest first") in ui
-                                if system_infos.pid_collection.sort_apps_smallest_first == False:
-                                    ui[-1] |= Bg.green
-                                if ui[-1].click():
-                                    system_infos.pid_collection.sort_apps_smallest_first = False
+                        with MoveCursor.AfterThis(ui):
+                            " " in ui
+                        widget_value_selector["Sort by:"](ui, system_infos.pid_collection.sort_apps_by,  sort_apps_by_choices)
 
                 if "pid" not in ui_apps_hidden_elements:
                     with MoveCursor.AfterThis(ui):
