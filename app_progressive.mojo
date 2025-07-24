@@ -65,6 +65,11 @@ def main():
     var ui_app_show_selected_pid_hidden_elements = False
     var ui_app_selected_pid_hidden_elements = List[String]()
 
+    var gpu_pannel_hovered = False
+    var gpu_pannel_column_add_menu = False
+    var gpu_pannel_hidden_columns = List("mem_total", "fan_pct", "consumption", "temperature")
+    #TODO make gpu pannel columns toggleable
+
     var show_next_refresh_progres_bar = False
 
     var sort_apps_by = 0
@@ -399,7 +404,7 @@ def main():
         with MoveCursor.BelowThis(ui):
             " " in ui
 
-        with MoveCursor.BelowThis[StyleBorderCurved](ui):
+        with MoveCursor.BelowThis[StyleBorderCurved](ui) as gpu_pannel:
             @parameter
             fn gpu_pannel_toggle():
                 Text("GPU") | Bg.white | Fg.black in ui
@@ -425,18 +430,23 @@ def main():
                         widget_plot(ui, system_infos.gpu_collection.avg_util_over_time)
                     with MoveCursor.AfterThis(ui):
                         " " in ui
-                    with MoveCursor.AfterThis(ui):
-                        Text("Consumption") in ui
-                        for gpu in system_infos.gpu_collection.gpus:
-                            with MoveCursor.BelowThis(ui):
-                                with MoveCursor.AfterThis(ui):
-                                    Text(Int(round(gpu.power_usage))) in ui
-                                with MoveCursor.AfterThis(ui):
-                                    Text("/") | Fg.cyan in ui
-                                with MoveCursor.AfterThis(ui):
-                                    Text(Int(round(gpu.power_capacity))) in ui
-                    with MoveCursor.AfterThis(ui):
-                        " " in ui
+                    if "consumption" not in gpu_pannel_hidden_columns:
+                        with MoveCursor.AfterThis(ui):
+                            Text("Consumption") in ui
+                            if ui[-1].click():
+                                gpu_pannel_hidden_columns.append("consumption")
+                            if ui[-1].hover():
+                                ui[-1] |= Bg.red
+                            for gpu in system_infos.gpu_collection.gpus:
+                                with MoveCursor.BelowThis(ui):
+                                    with MoveCursor.AfterThis(ui):
+                                        Text(Int(round(gpu.power_usage))) in ui
+                                    with MoveCursor.AfterThis(ui):
+                                        Text("/") | Fg.cyan in ui
+                                    with MoveCursor.AfterThis(ui):
+                                        Text(Int(round(gpu.power_capacity))) in ui
+                        with MoveCursor.AfterThis(ui):
+                            " " in ui
                     with MoveCursor.AfterThis(ui):
                         Text("Memory used") in ui
                         for gpu in system_infos.gpu_collection.gpus:
@@ -447,34 +457,74 @@ def main():
                         widget_plot(ui, system_infos.gpu_collection.avg_mem_over_time)
                     with MoveCursor.AfterThis(ui):
                         " " in ui
-                    with MoveCursor.AfterThis(ui):
-                        Text("Memory total") in ui
-                        for gpu in system_infos.gpu_collection.gpus:
-                            with MoveCursor.BelowThis(ui):
-                                Text(Int(round(gpu.mem_total))) in ui
-                    with MoveCursor.AfterThis(ui):
-                        " " in ui
-                    with MoveCursor.AfterThis(ui):
-                        Text("Temperature") in ui
-                        for gpu in system_infos.gpu_collection.gpus:
-                            with MoveCursor.BelowThis(ui):
-                                Text(Int(round(gpu.temperature))) in ui
-                    with MoveCursor.AfterThis(ui):
-                        " " in ui
-                    with MoveCursor.AfterThis(ui):
-                        Text("%Fan") in ui
-                        for gpu in system_infos.gpu_collection.gpus:
-                            with MoveCursor.BelowThis(ui):
-                                Text(Int(round(gpu.fan_pct))) in ui
-                        widget_plot(ui, system_infos.gpu_collection.avg_fan_over_time)
-                with MoveCursor.BelowThis(ui):
-                    with MoveCursor.AfterThis(ui):
+                    if "mem_total" not in gpu_pannel_hidden_columns:
                         with MoveCursor.AfterThis(ui):
-                            "Time to fetch:" in ui
-                            ui[-1] |= Bg.blue
-                        Text(" ", system_infos.gpu_collection.time_to_fetch, " ns") in ui
+                            Text("Memory total") in ui
+                            if ui[-1].click():
+                                gpu_pannel_hidden_columns.append("mem_total")
+                            if ui[-1].hover():
+                                ui[-1] |= Bg.red
+                            for gpu in system_infos.gpu_collection.gpus:
+                                with MoveCursor.BelowThis(ui):
+                                    Text(Int(round(gpu.mem_total))) in ui
+                        with MoveCursor.AfterThis(ui):
+                            " " in ui
+                    if "temperature" not in gpu_pannel_hidden_columns:
+                        with MoveCursor.AfterThis(ui):
+                            Text("Temperature") in ui
+                            if ui[-1].click():
+                                gpu_pannel_hidden_columns.append("temperature")
+                            if ui[-1].hover():
+                                ui[-1] |= Bg.red
+                            for gpu in system_infos.gpu_collection.gpus:
+                                with MoveCursor.BelowThis(ui):
+                                    Text(Int(round(gpu.temperature))) in ui
+                        with MoveCursor.AfterThis(ui):
+                            " " in ui
+                    if "fan_pct" not in gpu_pannel_hidden_columns:
+                        with MoveCursor.AfterThis(ui):
+                            Text("%Fan") in ui
+                            if ui[-1].click():
+                                gpu_pannel_hidden_columns.append("fan_pct")
+                            if ui[-1].hover():
+                                ui[-1] |= Bg.red
+                            for gpu in system_infos.gpu_collection.gpus:
+                                with MoveCursor.BelowThis(ui):
+                                    Text(Int(round(gpu.fan_pct))) in ui
+                            widget_plot(ui, system_infos.gpu_collection.avg_fan_over_time)
+
+                if gpu_pannel_hovered:
+                    with MoveCursor.BelowThis(ui):
+                        with MoveCursor.AfterThis(ui):
+                            with MoveCursor.AfterThis(ui):
+                                "Time to fetch:" in ui
+                                ui[-1] |= Bg.blue
+                            Text(" ", system_infos.gpu_collection.time_to_fetch, " ns") in ui
+                    if len(gpu_pannel_hidden_columns):
+                        with MoveCursor.BelowThis(ui):
+                            Text("Add column") | Bg.white | Fg.black in ui
+                            if ui[-1].hover():
+                                ui[-1].data.value = "[Add column]"
+                                ui[-1] |= Fg.magenta
+                            if ui[-1].click():
+                                gpu_pannel_column_add_menu = ~gpu_pannel_column_add_menu
+                            if gpu_pannel_column_add_menu:
+                                var idx_h_c = 0
+                                for h_c in gpu_pannel_hidden_columns:
+                                    Text(h_c) in ui
+                                    if ui[-1].click():
+                                        _ = gpu_pannel_hidden_columns.pop(idx_h_c)
+                                    if ui[-1].hover():
+                                        ui[-1] |= Fg.magenta
+                                        Text("Click to add column") | Bg.magenta in ui
+                                    idx_h_c +=1
             else:
                 gpu_pannel_toggle()
+            if gpu_pannel.hover():
+                gpu_pannel_hovered = True
+            else:
+                gpu_pannel_hovered = False
+                gpu_pannel_column_add_menu = False
 
         with MoveCursor.AfterThis[StyleBorderCurved](ui) as networking_area:
             # Text(len(system_infos.networking_app)) in ui
