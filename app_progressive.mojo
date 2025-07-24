@@ -28,7 +28,7 @@ def main():
     var show_app_pannel = False
     
     var system_infos = SystemInfos()
-    system_infos.update_values(show_ui_networking, show_app_pannel)
+    system_infos.update_values(show_ui_networking)
     # return
     
     var time = perf_counter_ns()
@@ -39,9 +39,9 @@ def main():
 
 
     var ui = UI()
-    
     ui.feature_tab_menu =True
     ui.show_tab_menu = True # Starts showed (tab to toggle)
+
     var show_cpu_cores = False
     var show_cpu_mhz = False
     var show_all_cooling = False
@@ -58,7 +58,7 @@ def main():
     
     var apps_area_hovered = False
     var show_apps_area_element_selector = False
-    var ui_apps_hidden_elements = List("io_read", "io_write", "uptime", "rss_k", "pid", "oom_score", "oom_score_adj")
+    var ui_apps_hidden_columns = List("swap_kb","io_read", "io_write", "uptime", "rss_k", "pid", "oom_score", "oom_score_adj")
     var ui_apps_io_unit_type = 0
     var ui_app_selected_pid = Optional[Int](None)
     
@@ -105,10 +105,9 @@ def main():
                 _ = ui.zones.pop()
 
         if TimePassed(time): 
-            system_infos.update_values(
-                show_ui_networking,
-                show_app_pannel
-            )
+            system_infos.update_values(show_ui_networking)
+            if show_app_pannel:
+                system_infos.pid_collection.update_values(ui_apps_hidden_columns)
         with MoveCursor.BelowThis(ui):
             with MoveCursor.BelowThis(ui):
                 with MoveCursor.BelowThis(ui):
@@ -616,7 +615,7 @@ def main():
                 if apps_area_hovered:
 
                     input_buffer["Filter:"](ui, system_infos.pid_collection.filter_edit_buffer, system_infos.pid_collection.filter_is_edit)
-                    if len(ui_apps_hidden_elements):
+                    if len(ui_apps_hidden_columns):
                         Text("➕") in ui
                         if ui[-1].click():
                             show_apps_area_element_selector = ~show_apps_area_element_selector
@@ -630,12 +629,12 @@ def main():
                     # ui_apps_io_unit_type
                     if show_apps_area_element_selector:
                         widget_checkbox(ui, "Ignore zero rss pids", system_infos.pid_collection.ignore_zero_rss_entries)
-                        for i in range(len(ui_apps_hidden_elements)):
-                            Text("[+]", ui_apps_hidden_elements[i]) in ui
+                        for i in range(len(ui_apps_hidden_columns)):
+                            Text("[+]", ui_apps_hidden_columns[i]) in ui
                             ui[-1] |= Fg.red
                             if ui[-1].click(): 
-                                _ = ui_apps_hidden_elements.pop(i)
-                    if ("io_read" in ui_apps_hidden_elements) and ("io_write" in ui_apps_hidden_elements):
+                                _ = ui_apps_hidden_columns.pop(i)
+                    if ("io_read" in ui_apps_hidden_columns) and ("io_write" in ui_apps_hidden_columns):
                         ...
                     else:
                         widget_value_selector["IO unit"](ui, ui_apps_io_unit_type, List("Mb","Kb","B"))
@@ -660,21 +659,21 @@ def main():
                             " " in ui
                         widget_value_selector["Sort by:"](ui, system_infos.pid_collection.sort_apps_by,  sort_apps_by_choices)
 
-                if "pid" not in ui_apps_hidden_elements:
+                if "pid" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         "PID" in ui
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("pid")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("pid")
                         for e in system_infos.pid_collection.values:
                             Text(e.PID) in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
 
-                if "uptime_h_m" not in ui_apps_hidden_elements:
+                if "uptime_h_m" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         Text("h ") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("uptime_h_m")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("uptime_h_m")
                         for e in system_infos.pid_collection.values:
                             var tmp_uptime = ((system_infos.uptime*100)-e.start_time)/100.0
                             var tmp_uptime2 = Int((tmp_uptime/60/60).__floor__())
@@ -685,7 +684,7 @@ def main():
                     with MoveCursor.AfterThis(ui):
                         Text("m ") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("uptime_h_m")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("uptime_h_m")
                         for e in system_infos.pid_collection.values:
                             var tmp_uptime = ((system_infos.uptime*100)-e.start_time)/100.0
                             var tmp_uptime2 = Int((tmp_uptime/60).__floor__())%60
@@ -693,21 +692,21 @@ def main():
                             else: " " in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
-                if "uptime" not in ui_apps_hidden_elements:
+                if "uptime" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         Text("uptime") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("uptime")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("uptime")
                         for e in system_infos.pid_collection.values:
                             var tmp_uptime = ((system_infos.uptime*100)-e.start_time)/100.0
                             Text(Int(tmp_uptime.__floor__())) in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
-                if "rss_m" not in ui_apps_hidden_elements:
+                if "rss_m" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         Text("rss[Mb]") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("rss_m")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("rss_m")
                         with MoveCursor.AfterThis(ui):
                             for e in system_infos.pid_collection.values:
                                 var tmp_rss_gbyte = (e.rss>>20)
@@ -717,11 +716,11 @@ def main():
                                     Text(" ") in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
-                if "rss_k" not in ui_apps_hidden_elements:
+                if "rss_k" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         Text("rss[Kb]") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("rss_k")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("rss_k")
                         with MoveCursor.AfterThis(ui):
                             for e in system_infos.pid_collection.values:
                                 var tmp_rss_gbyte = (e.rss>>10)&1023
@@ -731,11 +730,11 @@ def main():
                                     Text(" ") in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
-                if "swap_kb" not in ui_apps_hidden_elements:
+                if "swap_kb" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         Text("swap[Kb]") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("swap_kb")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("swap_kb")
                         with MoveCursor.AfterThis(ui):
                             for e in system_infos.pid_collection.values:
                                 if e.swap_kb:
@@ -755,11 +754,11 @@ def main():
                             ui[-1].data.value = String(ui[-1].data.value, " 📌 (Pin)")
                 with MoveCursor.AfterThis(ui):
                     " " in ui
-                if "io_read" not in ui_apps_hidden_elements:
+                if "io_read" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         Text("io_r") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("io_read")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("io_read")
                         for e in system_infos.pid_collection.values:
                             if e.io[0]!=0:
                                 var tmp_io_read_val = e.io[0]
@@ -778,11 +777,11 @@ def main():
                                 " " in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
-                if "io_write" not in ui_apps_hidden_elements:
+                if "io_write" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         Text("io_w") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("io_write")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("io_write")
                         for e in system_infos.pid_collection.values:
                             if e.io[1]:
                                 var tmp_io_write_val = e.io[1]
@@ -801,21 +800,21 @@ def main():
                                 " " in ui 
                     with MoveCursor.AfterThis(ui):
                         " " in ui
-                if "oom_score" not in ui_apps_hidden_elements:
+                if "oom_score" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         Text("oom_score") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("oom_score")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("oom_score")
                         with MoveCursor.AfterThis(ui):
                             for e in system_infos.pid_collection.values:
                                 Text(e.oom_score) in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
-                if "oom_score_adj" not in ui_apps_hidden_elements:
+                if "oom_score_adj" not in ui_apps_hidden_columns:
                     with MoveCursor.AfterThis(ui):
                         Text("oom_score_adj") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("oom_score_adj")
+                        if ui[-1].click(): ui_apps_hidden_columns.append("oom_score_adj")
                         with MoveCursor.AfterThis(ui):
                             for e in system_infos.pid_collection.values:
                                 Text(e.oom_score_adj) in ui
@@ -1262,7 +1261,7 @@ struct SystemInfos:
             self.uptime = Path("/proc/uptime").read_text().split(" ")[0].__float__()
         except e: ...
         self.gpu_collection = GPU_collection()
-    fn update_values(mut self, show_ui_networking_app: Bool, show_app_pannel: Bool):
+    fn update_values(mut self, show_ui_networking_app: Bool):
         for ref c in self.cooling: c.update_values()
         for ref t in self.thermal_sensors: t.update_values()
         for ref b in self.battery: b.update_values()
@@ -1294,8 +1293,6 @@ struct SystemInfos:
         try:
             self.uptime = Path("/proc/uptime").read_text().split(" ")[0].__float__()
         except e: ...
-        if show_app_pannel:
-            self.pid_collection.update_values()
         self.gpu_collection.update_values()
 
 @fieldwise_init
@@ -1409,8 +1406,12 @@ struct PIDCollection:
         self.filter_edit_buffer = String("")
         self.sort_apps_smallest_first = True
         self.sort_apps_by = 0
-    fn update_values(mut self):
+    fn update_values(mut self, read hidden_columns: List[String]):
         self.values.clear()
+        var need_io = ("io_read" not in hidden_columns) | ("io_write" not in hidden_columns)
+        var need_swap = "swap_kb" not in hidden_columns
+        var need_oom_score = "oom_score" not in hidden_columns
+        var need_oom_score_adj = "oom_score_adj" not in hidden_columns
         try:
             var pids = Path("/proc").listdir()
             # a > b, a newer, but need to check:
@@ -1432,22 +1433,25 @@ struct PIDCollection:
                         var splitted_stats = (tmp_stats[last_p+2:]).split(" ")
                         self.values[-1].rss = Int(splitted_stats[24-3])*page_size
                         self.values[-1].start_time = Int(splitted_stats[22-3])
-                        self.values[-1].get_io()
+                        if need_io:
+                            self.values[-1].get_io()
                         self.values[-1].current_state = splitted_stats[0]
                         # TODO: Need to make this way faster:
                         # (Currently uses a lot of CPU%)
-                        # Also, maybe fetch only if column is there!
+                        if need_swap:
+                            try:
+                                var tmp_p = (Path("/proc")/p/"smaps_rollup").read_text().splitlines()
+                                for i_ in range(2, len(tmp_p)-1): 
+                                    if tmp_p[i_].startswith("Swap:"):
+                                        self.values[-1].swap_kb = Int(tmp_p[i_][5:-3].strip())
+                            except e: ...
                         try:
-                            var tmp_p = (Path("/proc")/p/"smaps_rollup").read_text().splitlines()
-                            for i_ in range(2, len(tmp_p)-1): 
-                                if tmp_p[i_].startswith("Swap:"):
-                                    self.values[-1].swap_kb = Int(tmp_p[i_][5:-3].strip())
-                        except e: ...
-                        try:
-                            var tmp_p = (Path("/proc")/p/"oom_score").read_text()
-                            self.values[-1].oom_score = Int(tmp_p)
-                            tmp_p = (Path("/proc")/p/"oom_score_adj").read_text()
-                            self.values[-1].oom_score_adj = Int(tmp_p)
+                            if need_oom_score:
+                                var tmp_p = (Path("/proc")/p/"oom_score").read_text()
+                                self.values[-1].oom_score = Int(tmp_p)
+                            if need_oom_score_adj:
+                                tmp_p = (Path("/proc")/p/"oom_score_adj").read_text()
+                                self.values[-1].oom_score_adj = Int(tmp_p)
                         except e: ...
 
                     except e:
