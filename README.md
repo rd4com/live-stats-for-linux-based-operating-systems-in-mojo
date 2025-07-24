@@ -58,6 +58,8 @@ This is what the ui framework should be able to to more and better over time.
 Defaults to dummy data,  
 just customize this [`Dummy_GPU_metric_fetcher.mojo`](./Dummy_GPU_metric_fetcher.mojo) to integrate any GPU!  
 
+<img src="./gpu_pannel.gif" />  
+
 The pannel only consume CSV with an specific format,  
 users can just create an shell script that get metrics from whatever source their GPU provide,  
 and format it to the expected CSV format.  
