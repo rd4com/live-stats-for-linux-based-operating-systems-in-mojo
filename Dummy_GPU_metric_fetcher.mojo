@@ -1,4 +1,5 @@
-#from subprocess import run
+# from subprocess import run
+from random import random_ui64
 
 fn gpu_metric_fetch(out ret: String):
     # This is the customizable generic fetcher used to feed metrics to the live GPU pannel.
@@ -28,9 +29,14 @@ fn gpu_metric_fetch(out ret: String):
     # What is needed is an unified metric format.
 
     # Some dummy GPU metrics returned in the expected CSV format:
+    # ret = String(
+    #     "Example Dummy GPU 1, 30, 1024, 2048, 50, 25, 100, 2000",
+    #     "\n", #New line
+    #     "Example Dummy GPU 2, 95, 2048, 4096, 75, 50, 400, 2500"
+    # )
     ret = String(
-        "Example Dummy GPU 1, 30, 1024, 2048, 50, 25, 100, 2000",
+        "Example Dummy GPU 1, ",random_ui64(70,99),", ",random_ui64(1024,1400),", 2048, 50,",random_ui64(50,100),", 100, 2000",
         "\n", #New line
-        "Example Dummy GPU 2, 95, 2048, 4096, 75, 50, 400, 2500"
+        "Example Dummy GPU 2, ",random_ui64(0,99),", ",random_ui64(0,4096),", 4096, 50, 20, 400, 2500",
     )
-    # (Fetching is done each second)
+    # Calling this function is done each second (vary, depending on non-gpu fetchers)

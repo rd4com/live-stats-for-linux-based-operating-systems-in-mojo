@@ -410,7 +410,7 @@ def main():
                     ui[-1].data.value += " (Click to toggle gpu pannel)" 
                     ui[-1] |= Bg.magenta
             if show_gpu_pannel:
-                with MoveCursor.AfterThis(ui):
+                with MoveCursor.BelowThis(ui):
                     with MoveCursor.AfterThis(ui):
                         gpu_pannel_toggle()
                         for gpu in system_infos.gpu_collection.gpus:
@@ -465,6 +465,25 @@ def main():
                         for gpu in system_infos.gpu_collection.gpus:
                             with MoveCursor.BelowThis(ui):
                                 Text(Int(round(gpu.fan_pct))) in ui
+                with MoveCursor.BelowThis(ui):
+                    with MoveCursor.AfterThis(ui):
+                        widget_plot(ui, system_infos.gpu_collection.avg_fan_over_time)
+                        Text("Fan avg") | Bg.white | Fg.black in ui
+                        ui[-1].data.value = ui[-1].data.value.center(width=16)
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    with MoveCursor.AfterThis(ui):
+                        widget_plot(ui, system_infos.gpu_collection.avg_util_over_time)
+                        Text("Util avg") | Bg.white | Fg.black in ui
+                        ui[-1].data.value = ui[-1].data.value.center(width=16)
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                        with MoveCursor.AfterThis(ui):
+                            "Time to fetch:" in ui
+                            ui[-1] |= Bg.blue
+                        Text(" ", system_infos.gpu_collection.time_to_fetch, " ns") in ui
             else:
                 gpu_pannel_toggle()
 
@@ -651,11 +670,11 @@ def main():
                     with MoveCursor.AfterThis(ui):
                         " " in ui
 
-                if "test_feature" not in ui_apps_hidden_elements:
+                if "uptime_h_m" not in ui_apps_hidden_elements:
                     with MoveCursor.AfterThis(ui):
                         Text("h ") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("test_feature")
+                        if ui[-1].click(): ui_apps_hidden_elements.append("uptime_h_m")
                         for e in system_infos.pid_collection.values:
                             var tmp_uptime = ((system_infos.uptime*100)-e.start_time)/100.0
                             var tmp_uptime2 = Int((tmp_uptime/60/60).__floor__())
@@ -666,7 +685,7 @@ def main():
                     with MoveCursor.AfterThis(ui):
                         Text("m ") in ui 
                         if ui[-1].hover(): ui[-1] |= Bg.red
-                        if ui[-1].click(): ui_apps_hidden_elements.append("test_feature")
+                        if ui[-1].click(): ui_apps_hidden_elements.append("uptime_h_m")
                         for e in system_infos.pid_collection.values:
                             var tmp_uptime = ((system_infos.uptime*100)-e.start_time)/100.0
                             var tmp_uptime2 = Int((tmp_uptime/60).__floor__())%60
@@ -1277,7 +1296,7 @@ struct SystemInfos:
         except e: ...
         if show_app_pannel:
             self.pid_collection.update_values()
-        self.gpu_collection = GPU_collection.update_values()
+        self.gpu_collection.update_values()
 
 @fieldwise_init
 struct GPUElement(Movable&Copyable):
@@ -1293,14 +1312,24 @@ struct GPUElement(Movable&Copyable):
 
 struct GPU_collection(Movable&Copyable):
     var gpus: List[GPUElement]
+    var time_to_fetch: UInt
+    var avg_fan_over_time: WidgetPlotSIMDQueue
+    var avg_util_over_time: WidgetPlotSIMDQueue
     fn __init__(out self):
         self.gpus = __type_of(self.gpus)()
-    @staticmethod
-    fn update_values(out ret: Self):
-        ret = Self()
+        self.time_to_fetch = 0
+        self.avg_fan_over_time = __type_of(self.avg_fan_over_time)()
+        self.avg_util_over_time = __type_of(self.avg_util_over_time)()
+    fn update_values(mut self):
         try:
             # Some dummy GPU metrics in the expected CSV format:
+            var start = perf_counter_ns()
             var tmp_fetch = gpu_metric_fetch() # imported from Dummy_GPU_metric_fetcher.mojo
+            var stop = perf_counter_ns()
+            self.time_to_fetch = stop-start
+
+            self.gpus.clear()
+
             var tmp_gpus = tmp_fetch.split("\n")
             var idx = 0
             for g in tmp_gpus:
@@ -1313,7 +1342,7 @@ struct GPU_collection(Movable&Copyable):
                 tmp_fan_pct = splitted[5]
                 tmp_power_usage = splitted[6]
                 tmp_power_capacity = splitted[7]
-                ret.gpus.append(
+                self.gpus.append(
                     GPUElement(
                         idx,
                         tmp_gpu_name,
@@ -1327,6 +1356,21 @@ struct GPU_collection(Movable&Copyable):
                     )
                 )
                 idx+=1
+            
+            var tmp_avg_fan = Float64(0)
+            var tmp_avg_util = Float64(0)
+            for _gpu in self.gpus:
+                tmp_avg_fan += Float64(_gpu.fan_pct)
+                tmp_avg_util += Float64(_gpu.utilization_pct)
+            tmp_avg_fan /= Float64(len(self.gpus))
+            tmp_avg_util /= Float64(len(self.gpus))
+
+            self.avg_fan_over_time.append_3bit_value(
+                UInt8(Int(round((7.0/100.0)*tmp_avg_fan)))
+            )
+            self.avg_util_over_time.append_3bit_value(
+                UInt8(Int(round((7.0/100.0)*tmp_avg_util)))
+            )
         except e:
             ...
 
