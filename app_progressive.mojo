@@ -422,6 +422,7 @@ def main():
                         for gpu in system_infos.gpu_collection.gpus:
                             with MoveCursor.BelowThis(ui):
                                 widget_percent_bar_with_speed(ui,gpu.utilization_pct , 0)
+                        widget_plot(ui, system_infos.gpu_collection.avg_util_over_time)
                     with MoveCursor.AfterThis(ui):
                         " " in ui
                     with MoveCursor.AfterThis(ui):
@@ -442,7 +443,8 @@ def main():
                             with MoveCursor.BelowThis(ui):
                                 var tmp_pct_gpu = 100.0/Float64(gpu.mem_total)
                                 tmp_pct_gpu *= Float64(gpu.mem_used)
-                                widget_progress_bar_thin[width=10](ui, Int(round(tmp_pct_gpu)))
+                                widget_progress_bar_thin[width=12](ui, Int(round(tmp_pct_gpu)))
+                        widget_plot(ui, system_infos.gpu_collection.avg_mem_over_time)
                     with MoveCursor.AfterThis(ui):
                         " " in ui
                     with MoveCursor.AfterThis(ui):
@@ -464,21 +466,9 @@ def main():
                         for gpu in system_infos.gpu_collection.gpus:
                             with MoveCursor.BelowThis(ui):
                                 Text(Int(round(gpu.fan_pct))) in ui
+                        widget_plot(ui, system_infos.gpu_collection.avg_fan_over_time)
                 with MoveCursor.BelowThis(ui):
                     with MoveCursor.AfterThis(ui):
-                        widget_plot(ui, system_infos.gpu_collection.avg_fan_over_time)
-                        Text("Fan avg") | Bg.white | Fg.black in ui
-                        ui[-1].data.value = ui[-1].data.value.center(width=16)
-                    with MoveCursor.AfterThis(ui):
-                        " " in ui
-                    with MoveCursor.AfterThis(ui):
-                        widget_plot(ui, system_infos.gpu_collection.avg_util_over_time)
-                        Text("Util avg") | Bg.white | Fg.black in ui
-                        ui[-1].data.value = ui[-1].data.value.center(width=16)
-                    with MoveCursor.AfterThis(ui):
-                        " " in ui
-                    with MoveCursor.AfterThis(ui):
-                        " " in ui
                         with MoveCursor.AfterThis(ui):
                             "Time to fetch:" in ui
                             ui[-1] |= Bg.blue
@@ -1312,11 +1302,13 @@ struct GPU_collection(Movable&Copyable):
     var time_to_fetch: UInt
     var avg_fan_over_time: WidgetPlotSIMDQueue
     var avg_util_over_time: WidgetPlotSIMDQueue
+    var avg_mem_over_time: WidgetPlotSIMDQueue
     fn __init__(out self):
         self.gpus = __type_of(self.gpus)()
         self.time_to_fetch = 0
         self.avg_fan_over_time = __type_of(self.avg_fan_over_time)()
         self.avg_util_over_time = __type_of(self.avg_util_over_time)()
+        self.avg_mem_over_time = __type_of(self.avg_mem_over_time)()
     fn update_values(mut self):
         try:
             # Some dummy GPU metrics in the expected CSV format:
@@ -1356,17 +1348,23 @@ struct GPU_collection(Movable&Copyable):
             
             var tmp_avg_fan = Float64(0)
             var tmp_avg_util = Float64(0)
+            var tmp_avg_mem_pct = Float64(0)
             for _gpu in self.gpus:
                 tmp_avg_fan += Float64(_gpu.fan_pct)
                 tmp_avg_util += Float64(_gpu.utilization_pct)
+                tmp_avg_mem_pct += (Float64(100.0/Float64(_gpu.mem_total))*Float64(_gpu.mem_used))
             tmp_avg_fan /= Float64(len(self.gpus))
             tmp_avg_util /= Float64(len(self.gpus))
+            tmp_avg_mem_pct /= Float64(len(self.gpus))
 
             self.avg_fan_over_time.append_3bit_value(
                 UInt8(Int(round((7.0/100.0)*tmp_avg_fan)))
             )
             self.avg_util_over_time.append_3bit_value(
                 UInt8(Int(round((7.0/100.0)*tmp_avg_util)))
+            )
+            self.avg_mem_over_time.append_3bit_value(
+                UInt8(Int(round((7.0/100.0)*tmp_avg_mem_pct)))
             )
         except e:
             ...
