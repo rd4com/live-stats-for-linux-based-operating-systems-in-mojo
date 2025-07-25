@@ -26,6 +26,7 @@ def main():
 
     var show_ui_networking = False
     var show_app_pannel = False
+    var show_swap_pannel = False
     
     var system_infos = SystemInfos()
     system_infos.update_values(show_ui_networking)
@@ -93,6 +94,8 @@ def main():
                     widget_checkbox(ui, "Net drop", show_net_drop)
                 with MoveCursor.BelowThis(ui):
                     widget_checkbox(ui, "Net interfaces", show_net_interfaces)
+                with MoveCursor.BelowThis(ui):
+                    widget_checkbox(ui, "Swap pannel", show_swap_pannel)
         ui.set_tab_menu[tab_menu]()
 
         if show_next_refresh_progres_bar:
@@ -250,8 +253,22 @@ def main():
                                 Text("Available") in ui
                             # Text("RamFree") | Bg.white | Fg.black in ui
                             # Text(system_infos.ram_stats.free) | Fg.cyan in ui
-                with MoveCursor.AfterThis(ui):
-                    " " in ui
+                # with MoveCursor.AfterThis(ui):
+                #     " " in ui
+                if show_swap_pannel:
+                    with MoveCursor.AfterThis(ui):
+                        var swap_used_tmp = (100.0/Float64(system_infos.ram_stats.swaptotal))*(Float64(system_infos.ram_stats.swaptotal)-Float64(system_infos.ram_stats.swapfree))
+                        Text("SWAP 🔃 ", Int(round(swap_used_tmp)), "%") in ui
+                        if swap_used_tmp >= 66: 
+                            ui[-1] |= Bg.red
+                        elif swap_used_tmp >= 33: 
+                            ui[-1] |= Bg.yellow
+                        else: 
+                            ui[-1] |= Bg.green
+                        if ui[-1].hover():
+                            with MoveCursor.BelowThis(ui):
+                                Text(system_infos.ram_stats.swaptotal//1024, "Mb") | Fg.cyan in ui
+                                Text("Total") in ui
             with MoveCursor.AfterThis(ui):              
                 with MoveCursor.AfterThis(ui):
                 # with MoveCursor.AfterThis[StyleBorderSimple](ui):
@@ -1234,10 +1251,15 @@ struct RamStat(Movable, Copyable):
     var total: Int64
     var free: Int64
     var available: Int64
+    var swaptotal: Int64
+    var swapfree: Int64
     fn __init__(out self):
         self.total = 0
         self.free = 0
         self.available = 0
+        self.swaptotal = 0
+        self.swapfree = 0
+        var all_swap_done = 0
         var path = Path("/proc/meminfo")
         try:
             var res = path.read_text().splitlines()
@@ -1249,8 +1271,16 @@ struct RamStat(Movable, Copyable):
                 if idx == 0: self.total = Int(tmp_d[1])
                 elif idx == 1: self.free = Int(tmp_d[1])
                 elif idx == 2: self.available = Int(tmp_d[1])
+                else:
+                    if tmp_d[0].startswith("SwapTotal"):
+                        self.swaptotal = Int(tmp_d[1])
+                        all_swap_done += 1
+                    elif tmp_d[0].startswith("SwapFree"):
+                        self.swapfree = Int(tmp_d[1])
+                        all_swap_done += 1
+                    if all_swap_done == 2: break
                 idx+=1
-                if idx == 3: break
+                # if idx == 3: break
         except e: ...
 
 struct SystemInfos:
