@@ -68,7 +68,7 @@ def main():
 
     var gpu_pannel_hovered = False
     var gpu_pannel_column_add_menu = False
-    var gpu_pannel_hidden_columns = List("mem_total", "fan_pct", "consumption", "temperature")
+    var gpu_pannel_hidden_columns = List("mem_total", "fan_pct", "consumption")
     #TODO make gpu pannel columns toggleable
 
     var show_next_refresh_progres_bar = False
@@ -77,25 +77,30 @@ def main():
     var sort_apps_by_choices = List[String]("uptime", "rss", "swap")
 
     var show_gpu_pannel = False
-
+    var fetch_overhead = 0
     for _ in ui:
         
         @parameter
         fn tab_menu():
             with MoveCursor.BelowThis[StyleBorderSimple, Fg.blue](ui):
                 with MoveCursor.BelowThis(ui):
-                    Text("Show:") | Fg.blue | Bg.white in ui
+                    Text("Show:") | Fg.blue in ui
 
                 with MoveCursor.BelowThis(ui):
                     widget_checkbox(ui, "Next refresh", show_next_refresh_progres_bar)
+                    if ui[-1].hover(): ui[-1] |= Fg.magenta
                 with MoveCursor.BelowThis(ui):
                     widget_checkbox(ui, "All cooling", show_all_cooling)
+                    if ui[-1].hover(): ui[-1] |= Fg.magenta
                 with MoveCursor.BelowThis(ui):
                     widget_checkbox(ui, "Net drop", show_net_drop)
+                    if ui[-1].hover(): ui[-1] |= Fg.magenta
                 with MoveCursor.BelowThis(ui):
                     widget_checkbox(ui, "Net interfaces", show_net_interfaces)
+                    if ui[-1].hover(): ui[-1] |= Fg.magenta
                 with MoveCursor.BelowThis(ui):
                     widget_checkbox(ui, "Swap pannel", show_swap_pannel)
+                    if ui[-1].hover(): ui[-1] |= Fg.magenta
         ui.set_tab_menu[tab_menu]()
 
         if show_next_refresh_progres_bar:
@@ -113,9 +118,13 @@ def main():
                 _ = ui.zones.pop()
 
         if TimePassed(time): 
+            var start_fetch = perf_counter_ns()
             system_infos.update_values(show_ui_networking)
             if show_app_pannel:
                 system_infos.pid_collection.update_values(ui_apps_hidden_columns)
+            var stop_fetch = perf_counter_ns()
+            fetch_overhead = stop_fetch-start_fetch
+        # Text(Float64(fetch_overhead/Float64(1000000)), "ms") in ui
         with MoveCursor.BelowThis(ui):
             with MoveCursor.BelowThis(ui):
                 with MoveCursor.BelowThis(ui):
@@ -151,9 +160,14 @@ def main():
                             Text(" "*(17-len(value_txt))) in ui
                         with MoveCursor.AfterThis(ui):
                             Text(value_txt) in ui
-                            if highest_temp_sensors < 50.0: ui[-1] |= Fg.green 
-                            elif avg_temp_sensors < 60: ui[-1] |= Bg.yellow
-                            else: ui[-1] |= Bg.red
+                            if highest_temp_sensors < 50.0: 
+                                ui[-1] |= Fg.green 
+                            elif avg_temp_sensors < 60: 
+                                ui[-1] |= Bg.yellow
+                                ui[-1] |= Fg.black
+                            else: 
+                                ui[-1] |= Bg.red
+                                ui[-1] |= Fg.black
                         if ui[-1].hover():
                             show_all_temp_sensors = True
                         else:
@@ -174,6 +188,7 @@ def main():
                                     Text(Float64(e.temp/1000.0)) in ui
                                     if Float64(e.temp/1000.0) >= 60:
                                         ui[-1] |= Bg.red
+                                        ui[-1] |= Fg.black 
 
                 with MoveCursor.AfterThis(ui):
                     with MoveCursor.BelowThis(ui):
@@ -235,7 +250,7 @@ def main():
                             var percent_tmp_ram = Float64(100.0)/Float64(system_infos.ram_stats.total)
                             percent_tmp_ram*=Float64(system_infos.ram_stats.available)
                             var percent_tmp_ram2 = 100-Int(round(percent_tmp_ram))
-                            Text(percent_tmp_ram2, "% 🧮 RAM") in ui
+                            Text(percent_tmp_ram2, "% 🧮 RAM") | Fg.black in ui
                             if percent_tmp_ram2 >= 66: 
                                 ui[-1] |= Bg.red
                                 # widget_percent_bar_with_speed[Fg.red](ui, percent_tmp_ram2, 0)
@@ -258,7 +273,7 @@ def main():
                 if show_swap_pannel:
                     with MoveCursor.AfterThis(ui):
                         var swap_used_tmp = (100.0/Float64(system_infos.ram_stats.swaptotal))*(Float64(system_infos.ram_stats.swaptotal)-Float64(system_infos.ram_stats.swapfree))
-                        Text("SWAP 🔃 ", Int(round(swap_used_tmp)), "%") in ui
+                        Text("SWAP 🔃 ", Int(round(swap_used_tmp)), "%") | Fg.black in ui
                         if swap_used_tmp >= 66: 
                             ui[-1] |= Bg.red
                         elif swap_used_tmp >= 33: 
@@ -375,7 +390,7 @@ def main():
                         for e in system_infos.network_deltas:
                             with MoveCursor.BelowThis(ui):
                                 if e.rx_bytes != 0:
-                                    Text(e.rx_bytes) | Bg.cyan in ui
+                                    Text(e.rx_bytes) | Bg.cyan | Fg.black in ui
                                     #TODO better:
                                 else:
                                     #TODO better:
@@ -388,12 +403,14 @@ def main():
                             with MoveCursor.BelowThis(ui):
                                 if e.tx_bytes != 0:
                                     #TODO better:
-                                    Text(e.tx_bytes) | Bg.green in ui
+                                    Text(e.tx_bytes) | Bg.green | Fg.black in ui
                                 else:
                                     #TODO better:
                                     # Text(" ") in ui
                                     Text(e.tx_bytes) in ui
                     if show_net_drop:
+                        with MoveCursor.AfterThis(ui):
+                            " " in ui
                         with MoveCursor.AfterThis(ui):
                             Text("drop") in ui
                             for e in system_infos.network_deltas:
@@ -411,6 +428,7 @@ def main():
                                                 ui[-1] |= Fg.green
                                             else:
                                                 ui[-1] |= Bg.yellow
+                                                ui[-1] |= Fg.black
                                         with MoveCursor.AfterThis(ui):
                                             Text("/") | Fg.blue in ui
                                         with MoveCursor.AfterThis(ui):
@@ -514,8 +532,7 @@ def main():
                     with MoveCursor.BelowThis(ui):
                         with MoveCursor.AfterThis(ui):
                             with MoveCursor.AfterThis(ui):
-                                "Time to fetch:" in ui
-                                ui[-1] |= Bg.blue
+                                Text("Time to fetch:") | Bg.blue | Fg.black in ui
                             Text(" ", system_infos.gpu_collection.time_to_fetch, " ns") in ui
                     if len(gpu_pannel_hidden_columns):
                         with MoveCursor.BelowThis(ui):
@@ -533,7 +550,7 @@ def main():
                                         _ = gpu_pannel_hidden_columns.pop(idx_h_c)
                                     if ui[-1].hover():
                                         ui[-1] |= Fg.magenta
-                                        Text("Click to add column") | Bg.magenta in ui
+                                        Text("Click to add column") | Bg.magenta | Fg.black in ui
                                     idx_h_c +=1
             else:
                 gpu_pannel_toggle()
@@ -554,7 +571,7 @@ def main():
                     if ui[-1].click():
                         show_ui_networking = ~show_ui_networking
                     if ui[-1].hover():
-                        Text("Click (Enter) to toggle") | Bg.blue in ui
+                        Text("Click (Enter) to toggle") | Bg.blue | Fg.black in ui
             
             if show_ui_networking:
                 " " in ui
@@ -564,12 +581,14 @@ def main():
                         if ui[-1].click():
                             show_ui_networking_element_selector = ~show_ui_networking_element_selector
                         if ui[-1].hover():
-                            Text("Click to toggle columns customizer") | Bg.blue in ui
+                            Text("Click to toggle columns customizer") | Bg.blue | Fg.black in ui
                 
                 if show_ui_networking_element_selector:
                     for i in range(len(ui_networking_hidden_elements)):
                         Text("[+]", ui_networking_hidden_elements[i]) in ui
                         ui[-1] |= Fg.red
+                        if ui[-1].hover(): 
+                            ui[-1] |= Fg.green
                         if ui[-1].click(): 
                             _ = ui_networking_hidden_elements.pop(i)
                 with MoveCursor.BelowThis(ui):
@@ -660,11 +679,11 @@ def main():
         
         with MoveCursor.AfterThis[StyleBorderCurved](ui) as apps_area:
             # app_panel.render()
-            Text("📱 Apps") | Bg.magenta in ui
+            Text("📱 Apps") | Bg.magenta | Fg.black in ui
             if ui[-1].click():
                 show_app_pannel = ~show_app_pannel
             if ui[-1].hover():
-                Text("Click (Enter) to toggle") | Bg.blue in ui
+                Text("Click (Enter) to toggle") | Bg.blue | Fg.black in ui
             
 
             if show_app_pannel:
@@ -677,7 +696,7 @@ def main():
                         if ui[-1].click():
                             show_apps_area_element_selector = ~show_apps_area_element_selector
                         if ui[-1].hover():
-                            Text("Click to toggle columns customizer") | Bg.blue in ui
+                            Text("Click to toggle columns customizer") | Bg.blue | Fg.black in ui
                     Text("ℹ️") in ui
                     if ui[-1].hover():
                         with MoveCursor.BelowThis[StyleBorderCurved, Fg.green](ui):
@@ -689,6 +708,8 @@ def main():
                         for i in range(len(ui_apps_hidden_columns)):
                             Text("[+]", ui_apps_hidden_columns[i]) in ui
                             ui[-1] |= Fg.red
+                            if ui[-1].hover(): 
+                                ui[-1] |= Fg.green
                             if ui[-1].click(): 
                                 _ = ui_apps_hidden_columns.pop(i)
                     if ("io_read" in ui_apps_hidden_columns) and ("io_write" in ui_apps_hidden_columns):
@@ -900,6 +921,7 @@ def main():
                 if ui[-1].hover():
                     "^Click to toggle columns menu" in ui
                     ui[-1] |= Bg.blue
+                    ui[-1] |= Fg.black
                 if ui_app_show_selected_pid_hidden_elements:
                     var tmp_idx = 0
                     for v in ui_app_selected_pid_hidden_elements:
@@ -932,6 +954,7 @@ def main():
                                         ui[-1] |= Bg.red
                                         "Click to remove column" in ui
                                         ui[-1] |= Bg.magenta
+                                        ui[-1] |= Fg.black
                                     Text(splitted[1].strip()) in ui
                 except e:
                     # if error, set to none !
