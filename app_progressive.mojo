@@ -68,8 +68,7 @@ def main():
 
     var gpu_pannel_hovered = False
     var gpu_pannel_column_add_menu = False
-    var gpu_pannel_hidden_columns = List("mem_total", "fan_pct", "consumption")
-    #TODO make gpu pannel columns toggleable
+    var gpu_pannel_hidden_columns = List("mem_total", "fan_pct", "consumption", "temperature")
 
     var show_next_refresh_progres_bar = False
 
@@ -378,36 +377,59 @@ def main():
                 " " in ui
             with MoveCursor.AfterThis(ui):
             # with MoveCursor.AfterThis[StyleBorderSimple](ui):
-                with MoveCursor.AfterThis(ui):
+                with MoveCursor.BelowThis(ui):
                     if show_net_interfaces:
                         with MoveCursor.AfterThis(ui):
                             Text("🛜") in ui
                             for e in system_infos.network_deltas:
                                 with MoveCursor.BelowThis(ui):
                                     Text(e.name) | Bg.magenta in ui
-                    with MoveCursor.AfterThis(ui):
-                        Text("rx bytes") | Fg.cyan in ui
-                        for e in system_infos.network_deltas:
-                            with MoveCursor.BelowThis(ui):
-                                if e.rx_bytes != 0:
-                                    Text(e.rx_bytes) | Bg.cyan | Fg.black in ui
-                                    #TODO better:
-                                else:
-                                    #TODO better:
-                                    Text(e.rx_bytes) in ui
-                                    # Text(" ") in ui
-                    with MoveCursor.AfterThis(ui): " " in ui
-                    with MoveCursor.AfterThis(ui):
-                        Text("tx bytes") | Fg.green in ui
-                        for e in system_infos.network_deltas:
-                            with MoveCursor.BelowThis(ui):
-                                if e.tx_bytes != 0:
-                                    #TODO better:
-                                    Text(e.tx_bytes) | Bg.green | Fg.black in ui
-                                else:
-                                    #TODO better:
-                                    # Text(" ") in ui
-                                    Text(e.tx_bytes) in ui
+                    with MoveCursor.AfterThis(ui) as network_delta_area:
+                        with MoveCursor.BelowThis(ui):
+                            with MoveCursor.AfterThis(ui):
+                                Text("rx bytes") | Fg.cyan in ui
+                                for e in system_infos.network_deltas:
+                                    with MoveCursor.BelowThis(ui):
+                                        if e.rx_bytes != 0:
+                                            Text(e.rx_bytes) | Bg.cyan | Fg.black in ui
+                                            #TODO better:
+                                        else:
+                                            #TODO better:
+                                            # Text(e.rx_bytes) in ui
+                                            Text(" ") in ui
+                            with MoveCursor.AfterThis(ui): " " in ui
+                            with MoveCursor.AfterThis(ui):
+                                Text("tx bytes") | Fg.green in ui
+                                for e in system_infos.network_deltas:
+                                    with MoveCursor.BelowThis(ui):
+                                        if e.tx_bytes != 0:
+                                            #TODO better:
+                                            Text(e.tx_bytes) | Bg.green | Fg.black in ui
+                                        else:
+                                            #TODO better:
+                                            Text(" ") in ui
+                                            # Text(e.tx_bytes) in ui
+                        if network_delta_area.hover():
+                            with MoveCursor.AfterThis(ui):
+                                # widget_plot(ui, system_infos.rx_tx_over_time, Fg.magenta)
+                                for idx_delta in range(system_infos.rx_tx_over_time.size):
+                                    var tmp_delta_cur = system_infos.rx_tx_over_time.values[idx_delta]
+                                    with MoveCursor.AfterThis(ui):
+                                        if tmp_delta_cur:
+                                            " " in ui
+                                            if tmp_delta_cur == 3:
+                                                ui[-1].data.replace_each_when_render= "↕"
+                                                ui[-1] |= Fg.blue
+                                            elif tmp_delta_cur == 2:
+                                                ui[-1].data.replace_each_when_render= "↑"
+                                                ui[-1] |= Fg.green
+                                            else:
+                                                ui[-1].data.replace_each_when_render= "↓"
+                                                ui[-1] |= Fg.cyan
+                                        else:
+                                            " " in ui
+
+
                     if show_net_drop:
                         with MoveCursor.AfterThis(ui):
                             " " in ui
@@ -1321,10 +1343,12 @@ struct SystemInfos:
     var networking_app: List[NetworkingApp]
     var freq_over_time: WidgetPlotSIMDQueue
     var cpu0_over_time: WidgetPlotSIMDQueue
+    var rx_tx_over_time: WidgetPlotSIMDQueue
     var pid_collection: PIDCollection
     var uptime: Float64
     var gpu_collection: GPU_collection
     fn __init__(out self):
+        self.rx_tx_over_time = __type_of(self.rx_tx_over_time)()
         self.freq_over_time = __type_of(self.freq_over_time)()
         self.cpu0_over_time = __type_of(self.cpu0_over_time)()
         self.cooling = CoolingDevice.get_all()
@@ -1365,6 +1389,14 @@ struct SystemInfos:
         self.network_stats.append(Network.get_all())
         _ = self.network_stats.pop(0)
         self.network_deltas = Network.to_deltas(self.network_stats)
+        var cur_delt_val = 0
+        for v_delt in self.network_deltas:
+            if (v_delt.rx_bytes>0): 
+                cur_delt_val |=1
+            if (v_delt.tx_bytes>0):
+                cur_delt_val |= 2
+        self.rx_tx_over_time.append_3bit_value(cur_delt_val)
+
         # self.network_deltas.append(Network("test", 1, 1, 1, None))
         self.last_created_pid = LastCreatedPID()
         self.ram_stats = RamStat()
