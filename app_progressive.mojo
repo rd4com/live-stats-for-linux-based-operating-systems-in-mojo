@@ -48,6 +48,7 @@ def main():
     var show_all_cooling = False
     var show_all_temp_sensors = False
 
+    var pin_app_hovered = False
     
     var show_net_drop = False
     var show_net_interfaces = False
@@ -59,7 +60,7 @@ def main():
     
     var apps_area_hovered = False
     var show_apps_area_element_selector = False
-    var ui_apps_hidden_columns = List("swap_kb","io_read", "io_write", "uptime", "rss_k", "pid", "oom_score", "oom_score_adj")
+    var ui_apps_hidden_columns = List("uptime_h_m", "swap_kb","io_read", "io_write", "uptime", "rss_k", "pid", "oom_score", "oom_score_adj")
     var ui_apps_io_unit_type = 0
     var ui_app_selected_pid = Optional[Int](None)
     
@@ -69,13 +70,16 @@ def main():
     var gpu_pannel_hovered = False
     var gpu_pannel_column_add_menu = False
     var gpu_pannel_hidden_columns = List("mem_total", "fan_pct", "consumption", "temperature")
+    var gpu_pannel_compact = True
 
     var show_next_refresh_progres_bar = False
 
     var sort_apps_by = 0
     var sort_apps_by_choices = List[String]("uptime", "rss", "swap")
 
+    var ui_show_battery = True
     var show_gpu_pannel = False
+    var show_cpu_pannel = True
     var fetch_overhead = 0
     for _ in ui:
         
@@ -89,13 +93,10 @@ def main():
                     widget_checkbox(ui, "Next refresh", show_next_refresh_progres_bar)
                     if ui[-1].hover(): ui[-1] |= Fg.magenta
                 with MoveCursor.BelowThis(ui):
+                    widget_checkbox(ui, "Battery", ui_show_battery)
+                    if ui[-1].hover(): ui[-1] |= Fg.magenta
+                with MoveCursor.BelowThis(ui):
                     widget_checkbox(ui, "All cooling", show_all_cooling)
-                    if ui[-1].hover(): ui[-1] |= Fg.magenta
-                with MoveCursor.BelowThis(ui):
-                    widget_checkbox(ui, "Net drop", show_net_drop)
-                    if ui[-1].hover(): ui[-1] |= Fg.magenta
-                with MoveCursor.BelowThis(ui):
-                    widget_checkbox(ui, "Net interfaces", show_net_interfaces)
                     if ui[-1].hover(): ui[-1] |= Fg.magenta
                 with MoveCursor.BelowThis(ui):
                     widget_checkbox(ui, "Swap pannel", show_swap_pannel)
@@ -125,464 +126,516 @@ def main():
             fetch_overhead = stop_fetch-start_fetch
         # Text(Float64(fetch_overhead/Float64(1000000)), "ms") in ui
         with MoveCursor.BelowThis(ui):
+
+
+
+
             with MoveCursor.BelowThis(ui):
                 with MoveCursor.BelowThis(ui):
-                    for e in system_infos.battery:
-                        var percent = (100.0/Float64(e.charge_full))*Float64(e.charge_now)
-                        Text("🔋 ",round(percent), "%") | Bg.white | Fg.black in ui
-                        # Text("🔋 Battery ",round(percent), "%") | Bg.white | Fg.black in ui
-                        if percent <= 33: ui[-1] |= Bg.red
-                        elif percent <= 66: ui[-1] |= Bg.yellow
-                        else: ui[-1] |= Bg.green
-                        if ui[-1].hover():
-                            Text(e.charge_now, "/", e.charge_full) in ui
-
-
-
-            with MoveCursor.BelowThis(ui):
-                
-                with MoveCursor.AfterThis(ui):
-                # with MoveCursor.AfterThis[StyleBorderCurved](ui):
-                    # Text("Temperatures") | Bg.white | Fg.black in ui
-                    var avg_temp_sensors = Float64(0.0)
-                    var highest_temp_sensors = Float64(0.0)
-                    for e in system_infos.thermal_sensors: 
-                        avg_temp_sensors+=Float64(e.temp)/1000.0
-                        if Float64(e.temp) > highest_temp_sensors: 
-                            highest_temp_sensors = e.temp
-                    avg_temp_sensors/=Float64(len(system_infos.thermal_sensors))
-                    # " " in ui
-                    highest_temp_sensors /=1000.0
-                    with MoveCursor.BelowThis(ui):
-                        var value_txt = String(round(highest_temp_sensors),"°C")
+                    if ui_show_battery:               
                         with MoveCursor.AfterThis(ui):
-                            Text(" "*(17-len(value_txt))) in ui
-                        with MoveCursor.AfterThis(ui):
-                            Text(value_txt) in ui
-                            if highest_temp_sensors < 50.0: 
-                                ui[-1] |= Fg.green 
-                            elif avg_temp_sensors < 60: 
-                                ui[-1] |= Bg.yellow
-                                ui[-1] |= Fg.black
-                            else: 
-                                ui[-1] |= Bg.red
-                                ui[-1] |= Fg.black
-                        if ui[-1].hover():
-                            show_all_temp_sensors = True
-                        else:
-                            show_all_temp_sensors = False
-                        # with MoveCursor.AfterThis(ui):
-                        #     Text("highest   ") in ui
-                    #TODO add for example to average: +1 or -4 for differences
-
-                    # widget_checkbox(ui, "Show all", show_all_temp_sensors)
-                    if show_all_temp_sensors:
-                        with MoveCursor.AfterThis(ui):
-                            for e in system_infos.thermal_sensors:
-                                with MoveCursor.BelowThis(ui):
-                                    Text(e.type) | Fg.cyan in ui
-                        with MoveCursor.AfterThis(ui):
-                            for e in system_infos.thermal_sensors:
-                                with MoveCursor.BelowThis(ui):
-                                    Text(Float64(e.temp/1000.0)) in ui
-                                    if Float64(e.temp/1000.0) >= 60:
-                                        ui[-1] |= Bg.red
-                                        ui[-1] |= Fg.black 
-
-                with MoveCursor.AfterThis(ui):
-                    with MoveCursor.BelowThis(ui):
-                        # with MoveCursor.BelowThis(ui):
-                        # with MoveCursor.AfterThis(ui):
-                        #     Text("Coolers:") | Bg.blue in ui
-                        for e in system_infos.cooling:
-                            var e_to_percent = (100.0/Float64(e.max_state))*Float64(e.cur_state)
-                            var to_speed = round((8.0/100.0)*e_to_percent)
-                            if e_to_percent != 0:
-                                if to_speed == 0: 
-                                    to_speed = 1
-                            with MoveCursor.AfterThis(ui):
-                                if to_speed == 0: Text("|") in ui
-                                elif to_speed == 1: spinner[1](ui)
-                                elif to_speed == 2: spinner[2](ui)
-                                elif to_speed == 3: spinner[3](ui)
-                                elif to_speed == 4: spinner[4](ui)
-                                elif to_speed == 5: spinner[5](ui)
-                                elif to_speed == 6: spinner[6](ui)
-                                elif to_speed == 7: spinner[7](ui)
-                                else: spinner[8](ui)
-                                if to_speed != 0: ui[-1] |= Fg.blue
+                            for e in system_infos.battery:
+                                var percent = (100.0/Float64(e.charge_full))*Float64(e.charge_now)
+                                Text("🔋 ",round(percent), "%") | Bg.white | Fg.black in ui
+                                # Text("🔋 Battery ",round(percent), "%") | Bg.white | Fg.black in ui
+                                if percent <= 33: ui[-1] |= Bg.red
+                                elif percent <= 66: ui[-1] |= Bg.yellow
+                                else: ui[-1] |= Bg.green
                                 if ui[-1].hover():
-                                    with MoveCursor.AfterThis(ui):
-                                        with MoveCursor.AfterThis(ui):
-                                            Text(e.type) | Fg.blue in ui
-                                        with MoveCursor.AfterThis(ui):
-                                            Text(e.cur_state) in ui
-                                        with MoveCursor.AfterThis(ui):
-                                            Text("/") | Fg.blue in ui
-                                        with MoveCursor.BelowThis(ui):
-                                            Text(e.max_state) in ui
-                    if show_all_cooling:
+                                    Text(e.charge_now, "/", e.charge_full) in ui
+                    with MoveCursor.AfterThis(ui):
+                    # with MoveCursor.AfterThis[StyleBorderCurved](ui):
+                        # Text("Temperatures") | Bg.white | Fg.black in ui
+                        var avg_temp_sensors = Float64(0.0)
+                        var highest_temp_sensors = Float64(0.0)
+                        for e in system_infos.thermal_sensors: 
+                            avg_temp_sensors+=Float64(e.temp)/1000.0
+                            if Float64(e.temp) > highest_temp_sensors: 
+                                highest_temp_sensors = e.temp
+                        avg_temp_sensors/=Float64(len(system_infos.thermal_sensors))
+                        # " " in ui
+                        highest_temp_sensors /=1000.0
+                        with MoveCursor.BelowThis(ui):
+                            var value_txt = String(round(highest_temp_sensors),"°C")
+                            with MoveCursor.AfterThis(ui):
+                                Text(value_txt) in ui
+                                if highest_temp_sensors < 50.0: 
+                                    ui[-1] |= Fg.green 
+                                elif avg_temp_sensors < 60: 
+                                    ui[-1] |= Bg.yellow
+                                    ui[-1] |= Fg.black
+                                else: 
+                                    ui[-1] |= Bg.red
+                                    ui[-1] |= Fg.black
+                            if ui[-1].hover():
+                                show_all_temp_sensors = True
+                            else:
+                                show_all_temp_sensors = False
+                            # with MoveCursor.AfterThis(ui):
+                            #     Text("highest   ") in ui
+                        #TODO add for example to average: +1 or -4 for differences
+
+                        # widget_checkbox(ui, "Show all", show_all_temp_sensors)
+                        if show_all_temp_sensors:
+                            with MoveCursor.AfterThis(ui):
+                                for e in system_infos.thermal_sensors:
+                                    with MoveCursor.BelowThis(ui):
+                                        Text(e.type) | Fg.cyan in ui
+                            with MoveCursor.AfterThis(ui):
+                                for e in system_infos.thermal_sensors:
+                                    with MoveCursor.BelowThis(ui):
+                                        Text(Float64(e.temp/1000.0)) in ui
+                                        if Float64(e.temp/1000.0) >= 60:
+                                            ui[-1] |= Bg.red
+                                            ui[-1] |= Fg.black 
+
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    with MoveCursor.AfterThis(ui):
+                    # with MoveCursor.BelowThis[StyleBorderSimple](ui):
                         with MoveCursor.BelowThis(ui):
                             with MoveCursor.AfterThis(ui):
-                                for e in system_infos.cooling:
+                                var percent_tmp_ram = Float64(100.0)/Float64(system_infos.ram_stats.total)
+                                percent_tmp_ram*=Float64(system_infos.ram_stats.available)
+                                var percent_tmp_ram2 = 100-Int(round(percent_tmp_ram))
+                                Text(percent_tmp_ram2, "% 🧮 RAM") | Fg.black in ui
+                                if percent_tmp_ram2 >= 66: 
+                                    ui[-1] |= Bg.red
+                                    # widget_percent_bar_with_speed[Fg.red](ui, percent_tmp_ram2, 0)
+                                elif percent_tmp_ram2 >= 33: 
+                                    ui[-1] |= Bg.yellow
+                                    # widget_percent_bar_with_speed[Fg.yellow](ui, percent_tmp_ram2, 0)
+                                else: 
+                                    ui[-1] |= Bg.green
+                                    # widget_percent_bar_with_speed[Fg.green](ui, percent_tmp_ram2, 0)
+                                
+                                if ui[-1].hover():
                                     with MoveCursor.BelowThis(ui):
-                                        Text(e.type) | Fg.blue in ui
-                            with MoveCursor.AfterThis(ui):
-                                for e in system_infos.cooling:
-                                    with MoveCursor.BelowThis(ui):
-                                        Text(e.cur_state) in ui
-                            with MoveCursor.AfterThis(ui):
-                                for _ in system_infos.cooling:
-                                    with MoveCursor.BelowThis(ui):
-                                        Text("/") | Fg.blue in ui
-                            with MoveCursor.AfterThis(ui):
-                                for e in system_infos.cooling:
-                                    with MoveCursor.BelowThis(ui):
-                                        Text(e.max_state) in ui
+                                        Text(system_infos.ram_stats.available//1024, "Mb") | Fg.cyan in ui
 
-                with MoveCursor.AfterThis(ui):
-                    " " in ui
-                with MoveCursor.AfterThis(ui):
-                # with MoveCursor.BelowThis[StyleBorderSimple](ui):
-                    with MoveCursor.BelowThis(ui):
+                                    Text("Available") in ui
+                                # Text("RamFree") | Bg.white | Fg.black in ui
+                                # Text(system_infos.ram_stats.free) | Fg.cyan in ui
+                    # with MoveCursor.AfterThis(ui):
+                    #     " " in ui
+                    if show_swap_pannel:
                         with MoveCursor.AfterThis(ui):
-                            var percent_tmp_ram = Float64(100.0)/Float64(system_infos.ram_stats.total)
-                            percent_tmp_ram*=Float64(system_infos.ram_stats.available)
-                            var percent_tmp_ram2 = 100-Int(round(percent_tmp_ram))
-                            Text(percent_tmp_ram2, "% 🧮 RAM") | Fg.black in ui
-                            if percent_tmp_ram2 >= 66: 
+                            var swap_used_tmp = (100.0/Float64(system_infos.ram_stats.swaptotal))*(Float64(system_infos.ram_stats.swaptotal)-Float64(system_infos.ram_stats.swapfree))
+                            Text("SWAP 🔃 ", Int(round(swap_used_tmp)), "%") | Fg.black in ui
+                            if swap_used_tmp >= 66: 
                                 ui[-1] |= Bg.red
-                                # widget_percent_bar_with_speed[Fg.red](ui, percent_tmp_ram2, 0)
-                            elif percent_tmp_ram2 >= 33: 
+                            elif swap_used_tmp >= 33: 
                                 ui[-1] |= Bg.yellow
-                                # widget_percent_bar_with_speed[Fg.yellow](ui, percent_tmp_ram2, 0)
                             else: 
                                 ui[-1] |= Bg.green
-                                # widget_percent_bar_with_speed[Fg.green](ui, percent_tmp_ram2, 0)
-                            
                             if ui[-1].hover():
                                 with MoveCursor.BelowThis(ui):
-                                    Text(system_infos.ram_stats.available//1024, "Mb") | Fg.cyan in ui
-
-                                Text("Available") in ui
-                            # Text("RamFree") | Bg.white | Fg.black in ui
-                            # Text(system_infos.ram_stats.free) | Fg.cyan in ui
-                # with MoveCursor.AfterThis(ui):
-                #     " " in ui
-                if show_swap_pannel:
+                                    Text(system_infos.ram_stats.swaptotal//1024, "Mb") | Fg.cyan in ui
+                                    Text("Total") in ui
                     with MoveCursor.AfterThis(ui):
-                        var swap_used_tmp = (100.0/Float64(system_infos.ram_stats.swaptotal))*(Float64(system_infos.ram_stats.swaptotal)-Float64(system_infos.ram_stats.swapfree))
-                        Text("SWAP 🔃 ", Int(round(swap_used_tmp)), "%") | Fg.black in ui
-                        if swap_used_tmp >= 66: 
-                            ui[-1] |= Bg.red
-                        elif swap_used_tmp >= 33: 
-                            ui[-1] |= Bg.yellow
-                        else: 
-                            ui[-1] |= Bg.green
-                        if ui[-1].hover():
-                            with MoveCursor.BelowThis(ui):
-                                Text(system_infos.ram_stats.swaptotal//1024, "Mb") | Fg.cyan in ui
-                                Text("Total") in ui
-            with MoveCursor.AfterThis(ui):              
-                with MoveCursor.AfterThis(ui):
-                # with MoveCursor.AfterThis[StyleBorderSimple](ui):
-                    with MoveCursor.BelowThis(ui):
-                        var tmp_max_freq = system_infos.cpu_max_freq//1000
-                        var avg = 0.0
-                        for e in system_infos.cpu_infos: avg+=e.mhz
-                        avg /= Float64(len(system_infos.cpu_infos))
-                        var percent = (100.0/Float64(tmp_max_freq))*avg
-
                         with MoveCursor.BelowThis(ui):
-                            with MoveCursor.BelowThis(ui):
-                                widget_plot(ui, system_infos.freq_over_time)
-                            with MoveCursor.AfterThis(ui):
-                                Text("MHz") | Bg.white | Fg.black in ui
-                                ui[-1].data.value = ui[-1].data.value.center(width=16)
-                                if ui[-1].hover():
-                                    show_cpu_mhz = True
-                                else:
-                                    show_cpu_mhz = False
-                        with MoveCursor.BelowThis(ui):
+                            # with MoveCursor.BelowThis(ui):
                             # with MoveCursor.AfterThis(ui):
-                            #     "avg " in ui
-                            widget_progress_bar_thin[width=12](ui, UInt8(percent))
-                        if show_cpu_mhz:
-
+                            #     Text("Coolers:") | Bg.blue in ui
+                            for e in system_infos.cooling:
+                                var e_to_percent = (100.0/Float64(e.max_state))*Float64(e.cur_state)
+                                var to_speed = round((8.0/100.0)*e_to_percent)
+                                if e_to_percent != 0:
+                                    if to_speed == 0: 
+                                        to_speed = 1
+                                with MoveCursor.AfterThis(ui):
+                                    if to_speed == 0: Text("|") in ui
+                                    elif to_speed == 1: spinner[1](ui)
+                                    elif to_speed == 2: spinner[2](ui)
+                                    elif to_speed == 3: spinner[3](ui)
+                                    elif to_speed == 4: spinner[4](ui)
+                                    elif to_speed == 5: spinner[5](ui)
+                                    elif to_speed == 6: spinner[6](ui)
+                                    elif to_speed == 7: spinner[7](ui)
+                                    else: spinner[8](ui)
+                                    if to_speed != 0: ui[-1] |= Fg.blue
+                                    if ui[-1].hover():
+                                        with MoveCursor.AfterThis(ui):
+                                            with MoveCursor.AfterThis(ui):
+                                                Text(e.type) | Fg.blue in ui
+                                            with MoveCursor.AfterThis(ui):
+                                                Text(e.cur_state) in ui
+                                            with MoveCursor.AfterThis(ui):
+                                                Text("/") | Fg.blue in ui
+                                            with MoveCursor.BelowThis(ui):
+                                                Text(e.max_state) in ui
+                        if show_all_cooling:
                             with MoveCursor.BelowThis(ui):
                                 with MoveCursor.AfterThis(ui):
-                                    for e in system_infos.cpu_infos:
+                                    for e in system_infos.cooling:
                                         with MoveCursor.BelowThis(ui):
-                                            Text(Int(e.mhz)) | Fg.cyan in ui
+                                            Text(e.type) | Fg.blue in ui
                                 with MoveCursor.AfterThis(ui):
-                                    for _ in system_infos.cpu_infos:
+                                    for e in system_infos.cooling:
                                         with MoveCursor.BelowThis(ui):
-                                            "Mhz" in ui
-                            with MoveCursor.BelowThis(ui):
-                                with MoveCursor.BelowThis(ui):
-                                    Text("Avg: ", String(Int(avg)).ljust(5)) in ui
+                                            Text(e.cur_state) in ui
                                 with MoveCursor.AfterThis(ui):
-                                    Text("Max: ", tmp_max_freq) in ui
-                        # with MoveCursor.BelowThis(ui):
+                                    for _ in system_infos.cooling:
+                                        with MoveCursor.BelowThis(ui):
+                                            Text("/") | Fg.blue in ui
+                                with MoveCursor.AfterThis(ui):
+                                    for e in system_infos.cooling:
+                                        with MoveCursor.BelowThis(ui):
+                                            Text(e.max_state) in ui
 
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                    if not show_net_interfaces:
+                        with MoveCursor.AfterThis(ui):
+                            "  " in ui
+                            ui[-1].data.replace_each_when_render = "🛜"
+                    else:
+                        with MoveCursor.AfterThis(ui):
+                            "  " in ui
 
-                    
-
-
-                        # with MoveCursor.BelowThis(ui):
-                        #     with MoveCursor.AfterThis(ui): Text(" ") in ui
-                        #     with MoveCursor.AfterThis(ui):
-                        #         widget_value_selector[""](ui, selected_overview, values_overview)
-                        #     with MoveCursor.AfterThis(ui): Text(" ") in ui
-                        #     with MoveCursor.AfterThis(ui):
-                        #         if selected_overview == 0:
-                        #
-                        #             with MoveCursor.AfterThis(ui):
-                        #                 Text(system_infos.last_created_pid.pid) | Fg.yellow in ui
-                        #             with MoveCursor.AfterThis(ui): Text(" ") in ui
-                        #             Text(system_infos.last_created_pid.cmd) | Fg.magenta in ui
-                        #         elif selected_overview == 1: ...
-                    
-                        # with MoveCursor.AfterThis[StyleBorderDouble, Fg.magenta](ui):
-                with MoveCursor.AfterThis(ui):
-                    " " in ui
-                with MoveCursor.AfterThis(ui):
                     with MoveCursor.AfterThis(ui):
                     # with MoveCursor.AfterThis[StyleBorderSimple](ui):
-                        with MoveCursor.BelowThis(ui):
-                            with MoveCursor.BelowThis(ui):
-                                widget_plot(ui, system_infos.cpu0_over_time)
-                            with MoveCursor.AfterThis(ui):
-                                Text("CPU") | Bg.white | Fg.black in ui
-                                ui[-1].data.value = ui[-1].data.value.center(width=16)
-                                if ui[-1].hover():
-                                    show_cpu_cores = True
-                                else:
-                                    show_cpu_cores = False
-                        with MoveCursor.BelowThis(ui):
-                            with MoveCursor.AfterThis(ui):
-                                for e in system_infos.proc_stats_deltas:
-                                    with MoveCursor.BelowThis(ui):
-                                        var tmp_delta_sum = e.user + e.nice + e.system + e.idle + e.iowait + e.irq + e.soft_irq + e.steal
-                                        var tmp_idle_sum = e.idle + e.iowait
-                                        var percent = 100.0 * Float64(tmp_delta_sum - tmp_idle_sum) / Float64(tmp_delta_sum);
-                                        if e.name == "cpu":
-                                            with MoveCursor.BelowThis(ui):
-                                                widget_progress_bar_thin[width=12](ui, UInt8(percent))
-                                        # Text(" ", round(percent),"%") in ui
+                        with MoveCursor.BelowThis(ui) as area_network_stats:
+                            # widget_plot(ui, system_infos.rx_tx_over_time, Fg.magenta)
+                            for idx_delta in range(system_infos.rx_tx_over_time.size):
+                                var tmp_delta_cur = system_infos.rx_tx_over_time.values[idx_delta]
+                                with MoveCursor.AfterThis(ui):
+                                    if tmp_delta_cur:
+                                        " " in ui
+                                        if tmp_delta_cur == 3:
+                                            ui[-1].data.replace_each_when_render= "↕"
+                                            ui[-1] |= Fg.blue
+                                        elif tmp_delta_cur == 2:
+                                            ui[-1].data.replace_each_when_render= "↑"
+                                            ui[-1] |= Fg.green
                                         else:
-                                            if show_cpu_cores:
-                                                widget_progress_bar_thin[theme = Fg.magenta, width=12](ui, UInt8(percent))
-            with MoveCursor.AfterThis(ui):
-                " " in ui
-            with MoveCursor.AfterThis(ui):
-            # with MoveCursor.AfterThis[StyleBorderSimple](ui):
-                with MoveCursor.BelowThis(ui):
-                    if show_net_interfaces:
-                        with MoveCursor.AfterThis(ui):
-                            Text("🛜") in ui
-                            for e in system_infos.network_deltas:
-                                with MoveCursor.BelowThis(ui):
-                                    Text(e.name) | Bg.magenta in ui
-                    with MoveCursor.AfterThis(ui) as network_delta_area:
-                        with MoveCursor.BelowThis(ui):
-                            with MoveCursor.AfterThis(ui):
-                                Text("rx bytes") | Fg.cyan in ui
-                                for e in system_infos.network_deltas:
-                                    with MoveCursor.BelowThis(ui):
-                                        if e.rx_bytes != 0:
-                                            Text(e.rx_bytes) | Bg.cyan | Fg.black in ui
-                                            #TODO better:
-                                        else:
-                                            #TODO better:
-                                            # Text(e.rx_bytes) in ui
-                                            Text(" ") in ui
-                            with MoveCursor.AfterThis(ui): " " in ui
-                            with MoveCursor.AfterThis(ui):
-                                Text("tx bytes") | Fg.green in ui
-                                for e in system_infos.network_deltas:
-                                    with MoveCursor.BelowThis(ui):
-                                        if e.tx_bytes != 0:
-                                            #TODO better:
-                                            Text(e.tx_bytes) | Bg.green | Fg.black in ui
-                                        else:
-                                            #TODO better:
-                                            Text(" ") in ui
-                                            # Text(e.tx_bytes) in ui
-                        if network_delta_area.hover():
-                            with MoveCursor.AfterThis(ui):
-                                # widget_plot(ui, system_infos.rx_tx_over_time, Fg.magenta)
-                                for idx_delta in range(system_infos.rx_tx_over_time.size):
-                                    var tmp_delta_cur = system_infos.rx_tx_over_time.values[idx_delta]
-                                    with MoveCursor.AfterThis(ui):
-                                        if tmp_delta_cur:
-                                            " " in ui
-                                            if tmp_delta_cur == 3:
-                                                ui[-1].data.replace_each_when_render= "↕"
-                                                ui[-1] |= Fg.blue
-                                            elif tmp_delta_cur == 2:
-                                                ui[-1].data.replace_each_when_render= "↑"
-                                                ui[-1] |= Fg.green
-                                            else:
-                                                ui[-1].data.replace_each_when_render= "↓"
-                                                ui[-1] |= Fg.cyan
-                                        else:
-                                            " " in ui
-
-
-                    if show_net_drop:
-                        with MoveCursor.AfterThis(ui):
-                            " " in ui
-                        with MoveCursor.AfterThis(ui):
-                            Text("drop") in ui
-                            for e in system_infos.network_deltas:
-                                with MoveCursor.BelowThis(ui):
-                                    Text(e.drop) in ui
-                        with MoveCursor.AfterThis(ui): " " in ui
-                        with MoveCursor.AfterThis(ui):
-                            Text("link quality") in ui
-                            for e in system_infos.network_deltas:
-                                with MoveCursor.BelowThis(ui):
-                                    if e.link_quality:
-                                        with MoveCursor.AfterThis(ui):
-                                            Text(e.link_quality.value()) in ui
-                                            if e.link_quality.value()>=35:
-                                                ui[-1] |= Fg.green
-                                            else:
-                                                ui[-1] |= Bg.yellow
-                                                ui[-1] |= Fg.black
-                                        with MoveCursor.AfterThis(ui):
-                                            Text("/") | Fg.blue in ui
-                                        with MoveCursor.AfterThis(ui):
-                                            Text("70") in ui
+                                            ui[-1].data.replace_each_when_render= "↓"
+                                            ui[-1] |= Fg.cyan
                                     else:
-                                        Text(" ") in ui
+                                        " " in ui
+                            if area_network_stats.hover():
+                                show_net_interfaces = True
+                            else:
+                                show_net_interfaces = False
+                        if show_net_interfaces:
+                            with MoveCursor.BelowThis(ui):
+                                with MoveCursor.AfterThis(ui):
+                                    Text("🛜") in ui
+                                    for e in system_infos.network_deltas:
+                                        with MoveCursor.BelowThis(ui):
+                                            Text(e.name) | Bg.magenta in ui
+                                if show_net_interfaces:
+                                    with MoveCursor.AfterThis(ui) as network_delta_area:
+                                        with MoveCursor.BelowThis(ui):
+                                            with MoveCursor.AfterThis(ui):
+                                                Text("rx bytes") | Fg.cyan in ui
+                                                for e in system_infos.network_deltas:
+                                                    with MoveCursor.BelowThis(ui):
+                                                        if e.rx_bytes != 0:
+                                                            Text(e.rx_bytes) | Bg.cyan | Fg.black in ui
+                                                            #TODO better:
+                                                        else:
+                                                            #TODO better:
+                                                            # Text(e.rx_bytes) in ui
+                                                            Text(" ") in ui
+                                            with MoveCursor.AfterThis(ui): " " in ui
+                                            with MoveCursor.AfterThis(ui):
+                                                Text("tx bytes") | Fg.green in ui
+                                                for e in system_infos.network_deltas:
+                                                    with MoveCursor.BelowThis(ui):
+                                                        if e.tx_bytes != 0:
+                                                            #TODO better:
+                                                            Text(e.tx_bytes) | Bg.green | Fg.black in ui
+                                                        else:
+                                                            #TODO better:
+                                                            Text(" ") in ui
+                                                            # Text(e.tx_bytes) in ui
+
+
+                                    with MoveCursor.AfterThis(ui):
+                                        " " in ui
+                                    with MoveCursor.AfterThis(ui):
+                                        Text("drop") in ui
+                                        for e in system_infos.network_deltas:
+                                            with MoveCursor.BelowThis(ui):
+                                                Text(e.drop) in ui
+                                    with MoveCursor.AfterThis(ui): " " in ui
+                                    with MoveCursor.AfterThis(ui):
+                                        Text("link quality") in ui
+                                        for e in system_infos.network_deltas:
+                                            with MoveCursor.BelowThis(ui):
+                                                if e.link_quality:
+                                                    with MoveCursor.AfterThis(ui):
+                                                        Text(e.link_quality.value()) in ui
+                                                        if e.link_quality.value()>=35:
+                                                            ui[-1] |= Fg.green
+                                                        else:
+                                                            ui[-1] |= Bg.yellow
+                                                            ui[-1] |= Fg.black
+                                                    with MoveCursor.AfterThis(ui):
+                                                        Text("/") | Fg.blue in ui
+                                                    with MoveCursor.AfterThis(ui):
+                                                        Text("70") in ui
+                                                else:
+                                                    Text(" ") in ui
+                
+                with MoveCursor.BelowThis(ui):
+                    " " in ui
+                with MoveCursor.AfterThis(ui):
+                    " " in ui
+                if not show_cpu_pannel:
+                    with MoveCursor.AfterThis(ui):
+                        Text("CPU") | Bg.white | Fg.black in ui
+                        if ui[-1].click():
+                            show_cpu_pannel = ~show_cpu_pannel
+                        if ui[-1].hover():
+                            ui[-1].data.value += " (Click to toggle cpu pannel)" 
+                            ui[-1] |= Bg.magenta
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+                else:
+                    with MoveCursor.AfterThis(ui):
+                        with MoveCursor.BelowThis(ui):
+                            Text("CPU") | Bg.white | Fg.black in ui
+                            if ui[-1].click():
+                                show_cpu_pannel = ~show_cpu_pannel
+                            if ui[-1].hover():
+                                ui[-1].data.value += " (Click to toggle cpu pannel)" 
+                                ui[-1] |= Bg.magenta
+                        with MoveCursor.AfterThis(ui):              
+                            with MoveCursor.AfterThis(ui):
+                                with MoveCursor.AfterThis(ui):
+                                # with MoveCursor.AfterThis[StyleBorderSimple](ui):
+                                    with MoveCursor.BelowThis(ui):
+                                        with MoveCursor.BelowThis(ui):
+                                            widget_plot(ui, system_infos.cpu0_over_time)
+                                        with MoveCursor.AfterThis(ui):
+                                            Text("CPU") | Bg.white | Fg.black in ui
+                                            ui[-1].data.value = ui[-1].data.value.center(width=16)
+                                            if ui[-1].hover():
+                                                show_cpu_cores = True
+                                            else:
+                                                show_cpu_cores = False
+                                    with MoveCursor.BelowThis(ui):
+                                        with MoveCursor.AfterThis(ui):
+                                            for e in system_infos.proc_stats_deltas:
+                                                with MoveCursor.BelowThis(ui):
+                                                    var tmp_delta_sum = e.user + e.nice + e.system + e.idle + e.iowait + e.irq + e.soft_irq + e.steal
+                                                    var tmp_idle_sum = e.idle + e.iowait
+                                                    var percent = 100.0 * Float64(tmp_delta_sum - tmp_idle_sum) / Float64(tmp_delta_sum);
+                                                    if e.name == "cpu":
+                                                        with MoveCursor.BelowThis(ui):
+                                                            widget_progress_bar_thin[width=12](ui, UInt8(percent))
+                                                    # Text(" ", round(percent),"%") in ui
+                                                    else:
+                                                        if show_cpu_cores:
+                                                            widget_progress_bar_thin[theme = Fg.magenta, width=12](ui, UInt8(percent))
+                            with MoveCursor.AfterThis(ui):
+                                " " in ui
+                            with MoveCursor.AfterThis(ui):
+                            # with MoveCursor.AfterThis[StyleBorderSimple](ui):
+                                with MoveCursor.BelowThis(ui):
+                                    var tmp_max_freq = system_infos.cpu_max_freq//1000
+                                    var avg = 0.0
+                                    for e in system_infos.cpu_infos: avg+=e.mhz
+                                    avg /= Float64(len(system_infos.cpu_infos))
+                                    var percent = (100.0/Float64(tmp_max_freq))*avg
+
+                                    with MoveCursor.BelowThis(ui):
+                                        with MoveCursor.BelowThis(ui):
+                                            widget_plot(ui, system_infos.freq_over_time)
+                                        with MoveCursor.AfterThis(ui):
+                                            Text("MHz") | Bg.white | Fg.black in ui
+                                            ui[-1].data.value = ui[-1].data.value.center(width=16)
+                                            if ui[-1].hover():
+                                                show_cpu_mhz = True
+                                            else:
+                                                show_cpu_mhz = False
+                                    with MoveCursor.BelowThis(ui):
+                                        # with MoveCursor.AfterThis(ui):
+                                        #     "avg " in ui
+                                        widget_progress_bar_thin[width=12](ui, UInt8(percent))
+                                    if show_cpu_mhz:
+
+                                        with MoveCursor.BelowThis(ui):
+                                            with MoveCursor.AfterThis(ui):
+                                                for e in system_infos.cpu_infos:
+                                                    with MoveCursor.BelowThis(ui):
+                                                        Text(Int(e.mhz)) | Fg.cyan in ui
+                                            with MoveCursor.AfterThis(ui):
+                                                for _ in system_infos.cpu_infos:
+                                                    with MoveCursor.BelowThis(ui):
+                                                        "Mhz" in ui
+                                        with MoveCursor.BelowThis(ui):
+                                            with MoveCursor.BelowThis(ui):
+                                                Text("Avg: ", String(Int(avg)).ljust(5)) in ui
+                                            with MoveCursor.AfterThis(ui):
+                                                Text("Max: ", tmp_max_freq) in ui
+                                    # with MoveCursor.BelowThis(ui):
+
+
+                                
+
+
+                                    # with MoveCursor.BelowThis(ui):
+                                    #     with MoveCursor.AfterThis(ui): Text(" ") in ui
+                                    #     with MoveCursor.AfterThis(ui):
+                                    #         widget_value_selector[""](ui, selected_overview, values_overview)
+                                    #     with MoveCursor.AfterThis(ui): Text(" ") in ui
+                                    #     with MoveCursor.AfterThis(ui):
+                                    #         if selected_overview == 0:
+                                    #
+                                    #             with MoveCursor.AfterThis(ui):
+                                    #                 Text(system_infos.last_created_pid.pid) | Fg.yellow in ui
+                                    #             with MoveCursor.AfterThis(ui): Text(" ") in ui
+                                    #             Text(system_infos.last_created_pid.cmd) | Fg.magenta in ui
+                                    #         elif selected_overview == 1: ...
+                                
+                                    # with MoveCursor.AfterThis[StyleBorderDouble, Fg.magenta](ui):
+                            with MoveCursor.AfterThis(ui):
+                                " " in ui
+                    with MoveCursor.AfterThis(ui):
+                        " " in ui
+
+                with MoveCursor.BelowThis(ui) as gpu_pannel:
+                    @parameter
+                    fn gpu_pannel_toggle():
+                        Text("GPU") | Bg.white | Fg.black in ui
+                        if ui[-1].click():
+                            show_gpu_pannel = ~show_gpu_pannel
+                        if ui[-1].hover():
+                            ui[-1].data.value += " (Click to toggle gpu pannel)" 
+                            ui[-1] |= Bg.magenta
+                    if show_gpu_pannel:
+                        with MoveCursor.BelowThis(ui):
+                            with MoveCursor.AfterThis(ui):
+                                gpu_pannel_toggle()
+                                for gpu in system_infos.gpu_collection.gpus:
+                                    with MoveCursor.BelowThis(ui):
+                                        if gpu_pannel_compact:
+                                            "  " in ui
+                                        else:
+                                            gpu.name in ui
+                            with MoveCursor.AfterThis(ui):
+                                " " in ui
+                            with MoveCursor.AfterThis(ui):
+                                Text("Utilization") in ui
+                                for gpu in system_infos.gpu_collection.gpus:
+                                    with MoveCursor.BelowThis(ui):
+                                        widget_percent_bar_with_speed(ui,gpu.utilization_pct , 0)
+                                widget_plot(ui, system_infos.gpu_collection.avg_util_over_time)
+                            with MoveCursor.AfterThis(ui):
+                                " " in ui
+                            if "consumption" not in gpu_pannel_hidden_columns:
+                                with MoveCursor.AfterThis(ui):
+                                    Text("Consumption") in ui
+                                    if ui[-1].click():
+                                        gpu_pannel_hidden_columns.append("consumption")
+                                    if ui[-1].hover():
+                                        ui[-1] |= Bg.red
+                                    for gpu in system_infos.gpu_collection.gpus:
+                                        with MoveCursor.BelowThis(ui):
+                                            with MoveCursor.AfterThis(ui):
+                                                Text(Int(round(gpu.power_usage))) in ui
+                                            with MoveCursor.AfterThis(ui):
+                                                Text("/") | Fg.cyan in ui
+                                            with MoveCursor.AfterThis(ui):
+                                                Text(Int(round(gpu.power_capacity))) in ui
+                                with MoveCursor.AfterThis(ui):
+                                    " " in ui
+                            with MoveCursor.AfterThis(ui):
+                                Text("Memory used") in ui
+                                for gpu in system_infos.gpu_collection.gpus:
+                                    with MoveCursor.BelowThis(ui):
+                                        var tmp_pct_gpu = 100.0/Float64(gpu.mem_total)
+                                        tmp_pct_gpu *= Float64(gpu.mem_used)
+                                        widget_progress_bar_thin[width=12](ui, Int(round(tmp_pct_gpu)))
+                                widget_plot(ui, system_infos.gpu_collection.avg_mem_over_time)
+                            with MoveCursor.AfterThis(ui):
+                                " " in ui
+                            if "mem_total" not in gpu_pannel_hidden_columns:
+                                with MoveCursor.AfterThis(ui):
+                                    Text("Memory total") in ui
+                                    if ui[-1].click():
+                                        gpu_pannel_hidden_columns.append("mem_total")
+                                    if ui[-1].hover():
+                                        ui[-1] |= Bg.red
+                                    for gpu in system_infos.gpu_collection.gpus:
+                                        with MoveCursor.BelowThis(ui):
+                                            Text(Int(round(gpu.mem_total))) in ui
+                                with MoveCursor.AfterThis(ui):
+                                    " " in ui
+                            if "temperature" not in gpu_pannel_hidden_columns:
+                                with MoveCursor.AfterThis(ui):
+                                    Text("C°/°F") in ui
+                                    if ui[-1].click():
+                                        gpu_pannel_hidden_columns.append("temperature")
+                                    if ui[-1].hover():
+                                        ui[-1] |= Bg.red
+                                    for gpu in system_infos.gpu_collection.gpus:
+                                        with MoveCursor.BelowThis(ui):
+                                            Text(Int(round(gpu.temperature))) in ui
+                                with MoveCursor.AfterThis(ui):
+                                    " " in ui
+                            if "fan_pct" not in gpu_pannel_hidden_columns:
+                                with MoveCursor.AfterThis(ui):
+                                    Text("%Fan") in ui
+                                    if ui[-1].click():
+                                        gpu_pannel_hidden_columns.append("fan_pct")
+                                    if ui[-1].hover():
+                                        ui[-1] |= Bg.red
+                                    for gpu in system_infos.gpu_collection.gpus:
+                                        with MoveCursor.BelowThis(ui):
+                                            Text(Int(round(gpu.fan_pct))) in ui
+                                    widget_plot(ui, system_infos.gpu_collection.avg_fan_over_time)
+
+                        if gpu_pannel_hovered:
+                            with MoveCursor.AfterThis(ui):
+                                " " in ui
+                            with MoveCursor.BelowThis(ui):
+                                widget_checkbox(ui, "Compact", gpu_pannel_compact)
+
+                            with MoveCursor.BelowThis(ui):
+                                with MoveCursor.AfterThis(ui):
+                                    with MoveCursor.AfterThis(ui):
+                                        Text("Time to fetch:") | Bg.blue | Fg.black in ui
+                                    Text(" ", system_infos.gpu_collection.time_to_fetch, " ns") in ui
+                            if len(gpu_pannel_hidden_columns):
+                                with MoveCursor.BelowThis(ui):
+                                    Text("Add column") | Bg.white | Fg.black in ui
+                                    if ui[-1].hover():
+                                        ui[-1].data.value = "[Add column]"
+                                        ui[-1] |= Fg.magenta
+                                    if ui[-1].click():
+                                        gpu_pannel_column_add_menu = ~gpu_pannel_column_add_menu
+                                    if gpu_pannel_column_add_menu:
+                                        var idx_h_c = 0
+                                        for h_c in gpu_pannel_hidden_columns:
+                                            Text(h_c) in ui
+                                            if ui[-1].click():
+                                                _ = gpu_pannel_hidden_columns.pop(idx_h_c)
+                                            if ui[-1].hover():
+                                                ui[-1] |= Fg.magenta
+                                                Text("Click to add column") | Bg.magenta | Fg.black in ui
+                                            idx_h_c +=1
+                    else:
+                        gpu_pannel_toggle()
+                    if gpu_pannel.hover():
+                        gpu_pannel_hovered = True
+                    else:
+                        gpu_pannel_hovered = False
+                        gpu_pannel_column_add_menu = False
+
+
+        # with MoveCursor.BelowThis[StyleBorderCurved](ui) as gpu_pannel:
 
         with MoveCursor.BelowThis(ui):
             " " in ui
-
-        with MoveCursor.BelowThis[StyleBorderCurved](ui) as gpu_pannel:
-            @parameter
-            fn gpu_pannel_toggle():
-                Text("GPU") | Bg.white | Fg.black in ui
-                if ui[-1].click():
-                    show_gpu_pannel = ~show_gpu_pannel
-                if ui[-1].hover():
-                    ui[-1].data.value += " (Click to toggle gpu pannel)" 
-                    ui[-1] |= Bg.magenta
-            if show_gpu_pannel:
-                with MoveCursor.BelowThis(ui):
-                    with MoveCursor.AfterThis(ui):
-                        gpu_pannel_toggle()
-                        for gpu in system_infos.gpu_collection.gpus:
-                            with MoveCursor.BelowThis(ui):
-                                gpu.name in ui
-                    with MoveCursor.AfterThis(ui):
-                        " " in ui
-                    with MoveCursor.AfterThis(ui):
-                        Text("Utilization") in ui
-                        for gpu in system_infos.gpu_collection.gpus:
-                            with MoveCursor.BelowThis(ui):
-                                widget_percent_bar_with_speed(ui,gpu.utilization_pct , 0)
-                        widget_plot(ui, system_infos.gpu_collection.avg_util_over_time)
-                    with MoveCursor.AfterThis(ui):
-                        " " in ui
-                    if "consumption" not in gpu_pannel_hidden_columns:
-                        with MoveCursor.AfterThis(ui):
-                            Text("Consumption") in ui
-                            if ui[-1].click():
-                                gpu_pannel_hidden_columns.append("consumption")
-                            if ui[-1].hover():
-                                ui[-1] |= Bg.red
-                            for gpu in system_infos.gpu_collection.gpus:
-                                with MoveCursor.BelowThis(ui):
-                                    with MoveCursor.AfterThis(ui):
-                                        Text(Int(round(gpu.power_usage))) in ui
-                                    with MoveCursor.AfterThis(ui):
-                                        Text("/") | Fg.cyan in ui
-                                    with MoveCursor.AfterThis(ui):
-                                        Text(Int(round(gpu.power_capacity))) in ui
-                        with MoveCursor.AfterThis(ui):
-                            " " in ui
-                    with MoveCursor.AfterThis(ui):
-                        Text("Memory used") in ui
-                        for gpu in system_infos.gpu_collection.gpus:
-                            with MoveCursor.BelowThis(ui):
-                                var tmp_pct_gpu = 100.0/Float64(gpu.mem_total)
-                                tmp_pct_gpu *= Float64(gpu.mem_used)
-                                widget_progress_bar_thin[width=12](ui, Int(round(tmp_pct_gpu)))
-                        widget_plot(ui, system_infos.gpu_collection.avg_mem_over_time)
-                    with MoveCursor.AfterThis(ui):
-                        " " in ui
-                    if "mem_total" not in gpu_pannel_hidden_columns:
-                        with MoveCursor.AfterThis(ui):
-                            Text("Memory total") in ui
-                            if ui[-1].click():
-                                gpu_pannel_hidden_columns.append("mem_total")
-                            if ui[-1].hover():
-                                ui[-1] |= Bg.red
-                            for gpu in system_infos.gpu_collection.gpus:
-                                with MoveCursor.BelowThis(ui):
-                                    Text(Int(round(gpu.mem_total))) in ui
-                        with MoveCursor.AfterThis(ui):
-                            " " in ui
-                    if "temperature" not in gpu_pannel_hidden_columns:
-                        with MoveCursor.AfterThis(ui):
-                            Text("Temperature") in ui
-                            if ui[-1].click():
-                                gpu_pannel_hidden_columns.append("temperature")
-                            if ui[-1].hover():
-                                ui[-1] |= Bg.red
-                            for gpu in system_infos.gpu_collection.gpus:
-                                with MoveCursor.BelowThis(ui):
-                                    Text(Int(round(gpu.temperature))) in ui
-                        with MoveCursor.AfterThis(ui):
-                            " " in ui
-                    if "fan_pct" not in gpu_pannel_hidden_columns:
-                        with MoveCursor.AfterThis(ui):
-                            Text("%Fan") in ui
-                            if ui[-1].click():
-                                gpu_pannel_hidden_columns.append("fan_pct")
-                            if ui[-1].hover():
-                                ui[-1] |= Bg.red
-                            for gpu in system_infos.gpu_collection.gpus:
-                                with MoveCursor.BelowThis(ui):
-                                    Text(Int(round(gpu.fan_pct))) in ui
-                            widget_plot(ui, system_infos.gpu_collection.avg_fan_over_time)
-
-                if gpu_pannel_hovered:
-                    with MoveCursor.BelowThis(ui):
-                        with MoveCursor.AfterThis(ui):
-                            with MoveCursor.AfterThis(ui):
-                                Text("Time to fetch:") | Bg.blue | Fg.black in ui
-                            Text(" ", system_infos.gpu_collection.time_to_fetch, " ns") in ui
-                    if len(gpu_pannel_hidden_columns):
-                        with MoveCursor.BelowThis(ui):
-                            Text("Add column") | Bg.white | Fg.black in ui
-                            if ui[-1].hover():
-                                ui[-1].data.value = "[Add column]"
-                                ui[-1] |= Fg.magenta
-                            if ui[-1].click():
-                                gpu_pannel_column_add_menu = ~gpu_pannel_column_add_menu
-                            if gpu_pannel_column_add_menu:
-                                var idx_h_c = 0
-                                for h_c in gpu_pannel_hidden_columns:
-                                    Text(h_c) in ui
-                                    if ui[-1].click():
-                                        _ = gpu_pannel_hidden_columns.pop(idx_h_c)
-                                    if ui[-1].hover():
-                                        ui[-1] |= Fg.magenta
-                                        Text("Click to add column") | Bg.magenta | Fg.black in ui
-                                    idx_h_c +=1
-            else:
-                gpu_pannel_toggle()
-            if gpu_pannel.hover():
-                gpu_pannel_hovered = True
-            else:
-                gpu_pannel_hovered = False
-                gpu_pannel_column_add_menu = False
-
-        with MoveCursor.AfterThis[StyleBorderCurved](ui) as networking_area:
+        with MoveCursor.AfterThis(ui):
+            " " in ui
+        
+        with MoveCursor.AfterThis(ui) as networking_area:
+        # with MoveCursor.AfterThis[StyleBorderCurved](ui) as networking_area:
             # Text(len(system_infos.networking_app)) in ui
             with MoveCursor.BelowThis(ui):
                 # with MoveCursor.AfterThis(ui):
@@ -699,9 +752,12 @@ def main():
                 show_ui_networking_element_selector = False
                 show_ui_networking_plus_button = False
         
-        with MoveCursor.AfterThis[StyleBorderCurved](ui) as apps_area:
+        with MoveCursor.AfterThis(ui):
+            " " in ui
+        with MoveCursor.AfterThis(ui) as apps_area:
+        # with MoveCursor.AfterThis[StyleBorderCurved](ui) as apps_area:
             # app_panel.render()
-            Text("📱 Apps") | Bg.magenta | Fg.black in ui
+            Text("📱 Apps") | Bg.black | Fg.white in ui
             if ui[-1].click():
                 show_app_pannel = ~show_app_pannel
             if ui[-1].hover():
@@ -739,7 +795,7 @@ def main():
                     else:
                         widget_value_selector["IO unit"](ui, ui_apps_io_unit_type, List("Mb","Kb","B"))
 
-                    with MoveCursor.BelowThis[StyleBorderCurved](ui):
+                    with MoveCursor.BelowThis(ui):
                         with MoveCursor.AfterThis(ui):
                             Text(" ") in ui
                             ui[-1].data.replace_each_when_render = "↑"
@@ -926,36 +982,43 @@ def main():
                 #         e.current_state in ui
                 #         if e.current_state == "R": ui[-1] |= Bg.green
             apps_area_hovered = apps_area.hover()
+            if apps_area_hovered == False:
+                show_apps_area_element_selector = False
         if ui_app_selected_pid:
-            with MoveCursor.AfterThis[StyleBorderDouble](ui) as pinned_apps_area:
+            with MoveCursor.AfterThis(ui) as pinned_apps_area:
                 Text("📌 Pinned: ", ui_app_selected_pid.value()) | Bg.green in ui
-                Text("Unpin") | Bg.red in ui
-                if ui[-1].click():
-                    ui_app_selected_pid = None
-                if ui[-1].hover():
-                    "⬆️ Click to unpin" in ui
-                " " in ui
-                if len(ui_app_selected_pid_hidden_elements) == 0:
-                    "ℹ️  Columns can be clicked to be toggled" in ui
-                "➕" in ui
-                if ui[-1].click():
-                    ui_app_show_selected_pid_hidden_elements = ~ui_app_show_selected_pid_hidden_elements
-                if ui[-1].hover():
-                    "^Click to toggle columns menu" in ui
-                    ui[-1] |= Bg.blue
-                    ui[-1] |= Fg.black
-                if ui_app_show_selected_pid_hidden_elements:
-                    var tmp_idx = 0
-                    for v in ui_app_selected_pid_hidden_elements:
-                        v in ui
-                        ui[-1] |= Fg.red
+                if pin_app_hovered:
+                    Text("Unpin") | Bg.red in ui
+                    if ui[-1].click():
+                        ui_app_selected_pid = None
+                    if ui[-1].hover():
+                        "⬆️ Click to unpin" in ui
+                    " " in ui
+                    if len(ui_app_selected_pid_hidden_elements) == 0:
+                        "ℹ️" in ui
                         if ui[-1].hover():
-                            ui[-1].data.value += "➕"
-                            ui[-1] |= Fg.green
-                        if ui[-1].click():
-                            _ = ui_app_selected_pid_hidden_elements.pop(tmp_idx)
-                            break
-                        tmp_idx+=1
+                            "Columns can be clicked to be toggled" in ui
+                            ui[-1] |= Bg.magenta
+
+                    "➕" in ui
+                    if ui[-1].click():
+                        ui_app_show_selected_pid_hidden_elements = ~ui_app_show_selected_pid_hidden_elements
+                    if ui[-1].hover():
+                        "^Click to toggle columns menu" in ui
+                        ui[-1] |= Bg.blue
+                        ui[-1] |= Fg.black
+                    if ui_app_show_selected_pid_hidden_elements:
+                        var tmp_idx = 0
+                        for v in ui_app_selected_pid_hidden_elements:
+                            v in ui
+                            ui[-1] |= Fg.red
+                            if ui[-1].hover():
+                                ui[-1].data.value += "➕"
+                                ui[-1] |= Fg.green
+                            if ui[-1].click():
+                                _ = ui_app_selected_pid_hidden_elements.pop(tmp_idx)
+                                break
+                            tmp_idx+=1
                 try:
                     if ui_app_selected_pid.__bool__() == False:
                         raise "Error"
@@ -981,6 +1044,11 @@ def main():
                 except e:
                     # if error, set to none !
                     ui_app_selected_pid = None
+                if pinned_apps_area.hover():
+                    pin_app_hovered = True
+                else:
+                    ui_app_show_selected_pid_hidden_elements = False
+                    pin_app_hovered = False
 
 
 @fieldwise_init
