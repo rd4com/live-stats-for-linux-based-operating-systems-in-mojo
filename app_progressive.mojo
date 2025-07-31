@@ -71,6 +71,7 @@ def main():
     var gpu_pannel_column_add_menu = False
     var gpu_pannel_hidden_columns = List("mem_total", "fan_pct", "consumption", "temperature")
     var gpu_pannel_compact = True
+    var gpu_show_percent_utilization = True
 
     var show_next_refresh_progres_bar = False
 
@@ -522,7 +523,7 @@ def main():
                                 Text("Utilization") in ui
                                 for gpu in system_infos.gpu_collection.gpus:
                                     with MoveCursor.BelowThis(ui):
-                                        widget_percent_bar_with_speed(ui,gpu.utilization_pct , 0)
+                                        widget_percent(ui,gpu.utilization_pct, gpu_show_percent_utilization)
                                 widget_plot(ui, system_infos.gpu_collection.avg_util_over_time)
                             with MoveCursor.AfterThis(ui):
                                 " " in ui
@@ -593,7 +594,10 @@ def main():
                             with MoveCursor.AfterThis(ui):
                                 " " in ui
                             with MoveCursor.BelowThis(ui):
-                                widget_checkbox(ui, "Compact", gpu_pannel_compact)
+                                with MoveCursor.AfterThis(ui):
+                                    widget_checkbox(ui, "Compact", gpu_pannel_compact)
+                                with MoveCursor.AfterThis(ui):
+                                    widget_checkbox(ui, "Percent", gpu_show_percent_utilization)
 
                             with MoveCursor.BelowThis(ui):
                                 with MoveCursor.AfterThis(ui):
@@ -1680,4 +1684,24 @@ struct PIDCollection:
                 self.values.reverse()
         elif self.sort_apps_by == 1: sort[app_sort_rss](self.values)
         elif self.sort_apps_by == 2: sort[app_sort_swap](self.values)
+
+fn widget_percent(mut ui: UI,value: Int, show_percent: Bool= False):
+    #├  ─         ┤
+    #   10 values
+    var total_pos = Int(round(Float64(value)/10.0))
+    with MoveCursor.BelowThis(ui):
+        with MoveCursor.AfterThis(ui):
+            " " in ui
+            ui[-1].data.replace_each_when_render = "├"
+        for _ in range(total_pos):
+            with MoveCursor.AfterThis(ui):
+                " " in ui
+                ui[-1].data.replace_each_when_render = "─"
+
+        with MoveCursor.AfterThis(ui):
+            " " in ui
+            ui[-1].data.replace_each_when_render = "┤"
+        if show_percent:
+            with MoveCursor.AfterThis(ui):
+                Text(value,"%") in ui
 
