@@ -60,7 +60,7 @@ def main():
     
     var apps_area_hovered = False
     var show_apps_area_element_selector = False
-    var ui_apps_hidden_columns = List("uptime_h_m", "swap_kb","io_read", "io_write", "uptime", "rss_k", "pid", "oom_score", "oom_score_adj")
+    var ui_apps_hidden_columns = List("uptime_h_m", "swap_kb","io_read", "io_write", "uptime", "rss_k", "pid", "oom_score", "oom_score_adj","context_switch")
     var ui_apps_io_unit_type = 0
     var ui_app_selected_pid = Optional[Int](None)
     
@@ -980,6 +980,7 @@ def main():
                                 Text(e.oom_score_adj) in ui
                     with MoveCursor.AfterThis(ui):
                         " " in ui
+                context_switch_pannel(ui, system_infos.pid_collection.values, ui_apps_hidden_columns)
                 # Running/Sleep
                 # with MoveCursor.AfterThis(ui):
                 #     for e in system_infos.pid_collection.values:
@@ -1053,7 +1054,6 @@ def main():
                 else:
                     ui_app_show_selected_pid_hidden_elements = False
                     pin_app_hovered = False
-
 
 @fieldwise_init
 struct CoolingDevice(Movable, Copyable):
@@ -1705,3 +1705,37 @@ fn widget_percent(mut ui: UI,value: Int, show_percent: Bool= False):
             with MoveCursor.AfterThis(ui):
                 Text(value,"%") in ui
 
+fn context_switch_pannel(mut ui:UI, read data: List[PIDElement], mut ui_apps_hidden_columns: List[String]):
+    if "context_switch" not in ui_apps_hidden_columns:
+        with MoveCursor.AfterThis(ui):
+            with MoveCursor.BelowThis(ui):
+                "ContextSwitch(NV,V)" in ui
+                if ui[-1].hover():
+                    ui[-1] |= Bg.red
+                if ui[-1].click():
+                    ui_apps_hidden_columns.append("context_switch")
+                for entry in data:
+                    var tmp_delt = SIMD[DType.int64,2](0,0)
+                    if ui[-1].pos[1]<=-2:
+                        # Only fetch what is on the screen !
+                        " " in ui
+                        continue
+                    try:
+                        var tmp = (Path("/proc")/Path(String(entry.PID))/"status").read_text()
+                        var tmp_split = tmp.split("\n")
+                        var done = 0
+                        for l in reversed(tmp_split):
+                            if l.startswith("nonvoluntary_ctxt_switches"):
+                                tmp_delt[0] = Int(l.split(":")[1].strip())
+                                done |= 1
+                            elif l.startswith("voluntary_ctxt_switches"):
+                                tmp_delt[1] = Int(l.split(":")[1].strip())
+                                done |= 2
+                            if done == 3:
+                                break
+                        Text(tmp_delt) in ui
+                    except e:
+                        break
+                    if ui[-1].pos[1]>(ui.term_size[1]): 
+                        break
+        " " in ui
