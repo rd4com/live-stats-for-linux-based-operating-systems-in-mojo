@@ -46,13 +46,15 @@ there are some quirks in the UI tho, see the repo.
 
 # How the app look like:
 
-<img src="./overview.png" />  
+More user-friendly, progressive complexity, "Things shown only when needed".  
+This is what the ui framework should be able to to more and better over time.  
+
+<img src="./overview_now.png" />  
+
+Info: ⬇️ Many things changes since! It is `app_before.mojo` !
+<img src="./overview.png" width="128px"/>  
 
 # Latest improvements:
-
-### 🆕 [app_progressive](./app_progressive.mojo)
-More user-friendly, progressive complexity, "Things shown only when needed".  
-This is what the ui framework should be able to to more and better over time.
 
 ### 🆕 `GPU agnostic pannel` with customizable metric fetcher
 Defaults to dummy data,  
@@ -93,15 +95,13 @@ git clone --recursive https://github.com/rd4com/live-stats-for-linux-based-opera
 cd live-stats-for-linux-based-operating-systems-in-mojo
 cd ui-terminal-mojo
 pixi shell
-pixi run build_pkg
 cd ..
-mojo build app.mojo -I ui-terminal-mojo/build
+mojo build app.mojo
 ```
 This create the app, to run it:
 ```bash
 ./app
 ```
-(Change to `app_progressive.mojo` for the progressive flavour of `app.mojo`)  
 
 Why the ui is not an community-package yet ?  
 because not sure yet if the ui framework is good enough,  
