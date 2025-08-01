@@ -1,57 +1,56 @@
 # 🐧 live-stats-for-linux-based-operating-systems-in-mojo
-## Early development, please double check the metrics with other tools!
+*(Early development, please double check the metrics with other tools!)*  
 
 This app will run on 🐧 linux based OS, and is created in the 🔥 Mojo programming language.  
 It can be thought of as an overview of metrics with 🔍 variable level of details.  
 
-The reasons i'm building this is:  
-- Test and improve my work in progress UI framework: [ui-terminal-mojo](https://github.com/rd4com/ui-terminal-mojo)  
-- Showcase the ui  
-- Create something useful  
-- Learn a little about linux based operating systems  
-- Have something to show when looking for a job  
+- Context  
+- Progressive complexity
+- **"Things shown only when needed".**  
 
-It is important to say that i'm not an expert in any of theses things.  
-That is a lot of `I`, but the central idea is about creating something useful for you.  
+&nbsp;
 
-Over time, an `Trait` to simply add custom panels will be added,  
-that way, folks like me can create their pannels for gpus, containers, ..  
+Ergonomical:  
+1. Move with arrow keys  
+2. Accelerate holding shift  
+3. Click with Enter  
 
-Rules that guide this project:  
-- No extra dependencies  
-- Open-source  
+Friendly:  
+- Choose the current level of details for any part  
+- Default to less details  
 
-Why? So that people can:  
-- use this  
-- change this  
+Powerful:
+- Advanced stats available  
+- Explore and unlock new paths  
 
-How?  
-- easily  
+Unifying:  
+- CPU & GPU  
+- Networks & Networkers  
+- Sensors & Coolers  
+- Ram & Swap  
 
-Constraints:  
-- Time  
+&nbsp;
 
-If you'd like to heavily customize/change this,  
-feel free to clone, this is why it is open-source.  
+Status: *work-in-progress, thinking, design, ..*  
 
-───────────────────────────────────────────────────────────────────────────────  
-For people customizing:  
-The ui-framework can be thought of as an +- 30/60 FPS loop,  
-so don't do I/O in the loop,  
-or anything that should not be done many times per second.  
+&nbsp;
 
-Hopefully the code is self-explanatory,  
-there are some quirks in the UI tho, see the repo.  
-───────────────────────────────────────────────────────────────────────────────  
+**feel free to clone**, this is open-source!  
+If it helps you build something great,  
+that’s exactly what it’s here for.  
+
+
+(Small dev note):
+The ui-framework is an +- 30/60 FPS loop,  
+so don't do I/O or anything that should not be done many times per second.  
+
+&nbsp;
 
 # How the app look like:
 
-More user-friendly, progressive complexity, "Things shown only when needed".  
-This is what the ui framework should be able to to more and better over time.  
-
 <img src="./overview_now.png" />  
 
-Info: ⬇️ Many things changes since! It is `app_before.mojo` !
+Info: ➡️ Many things changes since `app_before.mojo`:
 <img src="./overview.png" width="128px"/>  
 
 # Latest improvements:
@@ -88,7 +87,7 @@ Next step might be to integrate `async` multithread with `SpinLock` :p
 &nbsp;
 <img src="./new_freq.gif" />  
 
-# How to get the app:
+# ▶️ How to get the app:
 
 ```bash
 git clone --recursive https://github.com/rd4com/live-stats-for-linux-based-operating-systems-in-mojo
@@ -103,9 +102,6 @@ This create the app, to run it:
 ./app
 ```
 
-Why the ui is not an community-package yet ?  
-because not sure yet if the ui framework is good enough,  
-hopefully, developing apps like this can help answer that.  
 
 ═══════════════════════════════════════════════════════════════════════════════  
 
